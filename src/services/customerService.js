@@ -1,31 +1,76 @@
 import { supabase } from '../lib/supabase'
 import { checkBlacklist } from './blacklistService'
 
+function normalizeWhatsApp(value = '') {
+  return value.replace(/[\s\-()]/g, '')
+}
+
+function isMissingRpcError(error) {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase()
+  return message.includes('public_upsert_customer') || message.includes('function') && message.includes('does not exist')
+}
+
 /**
  * Upsert a customer by WhatsApp number.
- * If customer exists, updates name and address.
- * Returns { customer, blacklistResult }
+ *
+ * Public order pages can run while an internal user is still authenticated in the
+ * same browser. Calling a SECURITY DEFINER RPC avoids RLS blocking the public
+ * customer creation/update flow and keeps customer rows from being broadly
+ * exposed through SELECT policies.
  */
-export async function upsertCustomer({ fullName, whatsappNumber, addressNotes = null, zoneId = null }) {
-  // Normalize WhatsApp number: remove spaces, dashes
-  const normalizedPhone = whatsappNumber.replace(/[\s\-()]/g, '')
+export async function upsertCustomer({
+  fullName,
+  whatsappNumber,
+  addressNotes = null,
+  zoneId = null,
+  lastKnownLat = null,
+  lastKnownLng = null,
+}) {
+  const normalizedPhone = normalizeWhatsApp(whatsappNumber)
 
-  const { data: customer, error } = await supabase
-    .from('customers')
-    .upsert(
-      {
-        full_name: fullName,
-        whatsapp_number: normalizedPhone,
-        address_notes: addressNotes,
-        zone_id: zoneId,
-        last_order_at: new Date().toISOString(),
-      },
-      { onConflict: 'whatsapp_number', ignoreDuplicates: false }
-    )
-    .select()
+  let customer = null
+  const { data: rpcCustomer, error: rpcError } = await supabase
+    .rpc('public_upsert_customer', {
+      p_full_name: fullName,
+      p_whatsapp_number: normalizedPhone,
+      p_address_notes: addressNotes,
+      p_zone_id: zoneId,
+      p_last_known_lat: lastKnownLat,
+      p_last_known_lng: lastKnownLng,
+    })
     .single()
 
-  if (error) throw new Error('Erro ao criar cliente: ' + error.message)
+  if (rpcError) {
+    if (!isMissingRpcError(rpcError)) {
+      throw new Error('Erro ao criar cliente: ' + rpcError.message)
+    }
+
+    // Fallback for local/dev databases that have not applied the production RPC yet.
+    const { data: fallbackCustomer, error: fallbackError } = await supabase
+      .from('customers')
+      .upsert(
+        {
+          full_name: fullName,
+          whatsapp_number: normalizedPhone,
+          address_notes: addressNotes,
+          zone_id: zoneId,
+          last_order_at: new Date().toISOString(),
+        },
+        { onConflict: 'whatsapp_number', ignoreDuplicates: false }
+      )
+      .select()
+      .single()
+
+    if (fallbackError) {
+      throw new Error(
+        'Erro ao criar cliente: ' + fallbackError.message +
+        '. Se isto acontecer em produção, aplica o patch SQL MedGo_supabase_production_patch.sql.'
+      )
+    }
+    customer = fallbackCustomer
+  } else {
+    customer = rpcCustomer
+  }
 
   // Verificar blacklist ANTES de devolver o customer.
   // Se o cliente estiver BLOCKED, lançar erro — o pedido não pode ser criado.
