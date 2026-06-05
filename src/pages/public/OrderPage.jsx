@@ -114,14 +114,14 @@ export function OrderPage() {
     // Honeypot: bots fill the hidden field, humans leave it empty
     if (honeypot) return
     // Rate limit: prevent double-submit or rapid resubmission
+    const errs = validate()
+    if (Object.keys(errs).length) { setErrors(errs); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
     const now = Date.now()
     if (now - lastSubmitRef.current < SUBMIT_COOLDOWN_MS) {
       setSubmitError(`Por favor aguarde alguns segundos antes de tentar novamente.`)
       return
     }
     lastSubmitRef.current = now
-    const errs = validate()
-    if (Object.keys(errs).length) { setErrors(errs); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
     setSubmitting(true); setSubmitError('')
     try {
       const fullAddress = [mapLocation.address, form.addressDetail].filter(Boolean).join(' — ')
@@ -130,10 +130,9 @@ export function OrderPage() {
         whatsappNumber: form.whatsapp,
         addressNotes: fullAddress,
         zoneId: mapLocation.zone?.id,
+        lastKnownLat: mapLocation.lat || null,
+        lastKnownLng: mapLocation.lng || null,
       })
-      if (mapLocation.lat && mapLocation.lng) {
-        await supabase.from('customers').update({ last_known_lat: mapLocation.lat, last_known_lng: mapLocation.lng }).eq('id', customer.id)
-      }
       const isRestrictedMed = medication.category === 'RESTRICTED_MONITORED'
       const needsRx = medication.requires_prescription || isRestrictedMed
       const initialStatus = needsRx ? ORDER_STATUS.PRESCRIPTION_PENDING : ORDER_STATUS.IN_VALIDATION
@@ -181,7 +180,11 @@ export function OrderPage() {
       // reduzindo custo e evitando enviar tracking/pagamento antes da confirmação operacional.
       navigate('/obrigado?token=' + order.tracking_token)
     } catch (err) {
-      setSubmitError(err?.message || 'Ocorreu um erro ao enviar o pedido. Por favor tente novamente.')
+      const message = err?.message || 'Ocorreu um erro ao enviar o pedido. Por favor tente novamente.'
+      const friendlyMessage = /row-level security|violates row-level|permission denied|policy/i.test(message)
+        ? 'Não foi possível registar o pedido por causa das permissões da base de dados. Aplica o patch SQL de produção e tenta novamente.'
+        : message
+      setSubmitError(friendlyMessage)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } finally {
       setSubmitting(false)
@@ -360,18 +363,27 @@ export function OrderPage() {
             type="submit"
             disabled={submitting || !mapLocation?.zone}
             className={`ship-submit-btn w-full ${isRestricted ? 'ship-submit-btn--restricted' : ''} ${submitting ? 'is-submitting' : ''}`}
+            aria-busy={submitting}
           >
-            <span className="ship-submit-btn__label">
-              {submitting ? 'A enviar pedido...' : submitLabel}
-            </span>
-            <span className="ship-submit-btn__scene" aria-hidden="true">
-              <span className="ship-submit-btn__box" />
-              <span className="ship-submit-btn__truck">
-                <span className="ship-submit-btn__truck-body" />
-                <span className="ship-submit-btn__truck-front" />
-                <span className="ship-submit-btn__truck-window" />
-                <span className="ship-submit-btn__wheel ship-submit-btn__wheel--left" />
-                <span className="ship-submit-btn__wheel ship-submit-btn__wheel--right" />
+            <span className="ship-submit-btn__content">
+              <span className="ship-submit-btn__icon" aria-hidden="true">
+                <span className="ship-submit-btn__route" />
+                <span className="ship-submit-btn__parcel" />
+                <span className="ship-submit-btn__van">
+                  <span className="ship-submit-btn__van-cabin" />
+                  <span className="ship-submit-btn__van-window" />
+                  <span className="ship-submit-btn__van-wheel ship-submit-btn__van-wheel--a" />
+                  <span className="ship-submit-btn__van-wheel ship-submit-btn__van-wheel--b" />
+                </span>
+                <span className="ship-submit-btn__check">✓</span>
+              </span>
+              <span className="ship-submit-btn__text">
+                <span className="ship-submit-btn__label">
+                  {submitting ? 'A registar pedido' : submitLabel}
+                </span>
+                <span className="ship-submit-btn__hint">
+                  {submitting ? 'Só demora alguns segundos' : mapLocation?.zone ? 'Confirmar dados e enviar' : 'Seleccione uma zona no mapa'}
+                </span>
               </span>
             </span>
           </button>
