@@ -146,3 +146,41 @@ export async function rejectPrescription({ orderId, reviewedBy, reviewedByRole, 
     metadata:    { reason: rejectReason, status },
   })
 }
+
+/**
+ * Upload público de receita para página de pedido.
+ * Usa RPC SECURITY DEFINER para registar a referência e actualizar o pedido,
+ * evitando falhas de RLS quando o cliente está como anon/authenticated.
+ */
+export async function uploadPublicPrescription(orderId, file) {
+  const validationErrors = validatePrescriptionFile(file)
+  if (validationErrors.length) {
+    throw new Error(validationErrors.join(' '))
+  }
+
+  const ext = file.name.split('.').pop().toLowerCase()
+  const path = `${orderId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+
+  const { error: uploadErr } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: false })
+
+  if (uploadErr) throw new Error('Upload falhou: ' + uploadErr.message)
+
+  const { data: ref, error: rpcErr } = await supabase
+    .rpc('public_register_prescription_upload', {
+      p_order_id: orderId,
+      p_storage_path: path,
+      p_file_name: file.name,
+      p_file_size: file.size,
+      p_mime_type: file.type,
+    })
+    .single()
+
+  if (rpcErr) {
+    await supabase.storage.from(BUCKET).remove([path]).catch(() => null)
+    throw new Error('Erro ao registar referência da receita: ' + rpcErr.message)
+  }
+
+  return { path, ref }
+}
