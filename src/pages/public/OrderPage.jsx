@@ -15,6 +15,10 @@ import { PAYMENT_METHOD } from '../../lib/constants'
 import { useMapConfig } from '../../hooks/useMapConfig'
 import { useZonesWithDistance } from '../../hooks/useZones'
 
+const MIN_SHIPMENT_ANIMATION_MS = 1650
+
+const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms))
+
 const PAYMENT_OPTIONS = [
   { value: PAYMENT_METHOD.CASH_ON_DELIVERY, label: 'Dinheiro na entrega', desc: 'O pagamento é feito no momento da entrega.' },
   { value: PAYMENT_METHOD.MPESA,            label: 'M-Pesa',              desc: 'Pagamento móvel através do M-Pesa.' },
@@ -122,6 +126,12 @@ export function OrderPage() {
       return
     }
     lastSubmitRef.current = now
+    const animationStartedAt = Date.now()
+    const finishShipmentAnimation = async () => {
+      const remaining = MIN_SHIPMENT_ANIMATION_MS - (Date.now() - animationStartedAt)
+      if (remaining > 0) await wait(remaining)
+    }
+
     setSubmitting(true); setSubmitError('')
     try {
       const fullAddress = [mapLocation.address, form.addressDetail].filter(Boolean).join(' — ')
@@ -177,8 +187,10 @@ export function OrderPage() {
       // Não enviamos WhatsApp automático aqui.
       // Estratégia oficial: o cliente inicia a conversa primeiro na ThankYouPage,
       // reduzindo custo e evitando enviar tracking/pagamento antes da confirmação operacional.
+      await finishShipmentAnimation()
       navigate('/obrigado?token=' + order.tracking_token)
     } catch (err) {
+      await finishShipmentAnimation()
       const message = err?.message || 'Ocorreu um erro ao enviar o pedido. Por favor tente novamente.'
       const friendlyMessage = /row-level security|violates row-level|permission denied|policy/i.test(message)
         ? 'Não foi possível registar o pedido por causa das permissões da base de dados. Aplica o patch SQL de produção e tenta novamente.'
@@ -381,7 +393,7 @@ export function OrderPage() {
                   {submitting ? 'A registar pedido' : submitLabel}
                 </span>
                 <span className="ship-submit-btn__hint">
-                  {submitting ? 'Só demora alguns segundos' : mapLocation?.zone ? 'Confirmar dados e enviar' : 'Seleccione uma zona no mapa'}
+                  {submitting ? 'A carregar e despachar' : mapLocation?.zone ? 'Confirmar dados e enviar' : 'Seleccione uma zona no mapa'}
                 </span>
               </span>
             </span>
