@@ -8,10 +8,10 @@ import { CategoryBadge } from '../../components/ui/Badge'
 import { Alert } from '../../components/ui/Alert'
 import { Spinner } from '../../components/ui/Spinner'
 import { upsertCustomer } from '../../services/customerService'
-import { uploadPrescription } from '../../services/prescriptionService'
+import { uploadPublicPrescription } from '../../services/prescriptionService'
 import { auditLog } from '../../services/auditService'
 import { getPricingConfig, calculatePrices } from '../../services/priceService'
-import { PAYMENT_METHOD, ORDER_STATUS } from '../../lib/constants'
+import { PAYMENT_METHOD } from '../../lib/constants'
 import { useMapConfig } from '../../hooks/useMapConfig'
 import { useZonesWithDistance } from '../../hooks/useZones'
 
@@ -135,38 +135,37 @@ export function OrderPage() {
       })
       const isRestrictedMed = medication.category === 'RESTRICTED_MONITORED'
       const needsRx = medication.requires_prescription || isRestrictedMed
-      const initialStatus = needsRx ? ORDER_STATUS.PRESCRIPTION_PENDING : ORDER_STATUS.IN_VALIDATION
-      const { data: order, error: orderErr } = await supabase.from('orders').insert({
-        customer_id: customer.id,
-        medication_id: medicationId,
-        medication_name_snapshot: medication.commercial_name,
-        zone_id: mapLocation.zone?.id || null,
-        delivery_address: fullAddress,
-        delivery_fee: mapLocation.zone?.delivery_fee ?? 0,
-        delivery_lat: mapLocation.lat,
-        delivery_lng: mapLocation.lng,
-        delivery_distance_km: mapLocation.distanceKm,
-        payment_method: form.paymentMethod,
-        status: initialStatus,
-        customer_notes: form.addressDetail || null,
-        prescription_status: needsRx ? 'PENDING' : null,
-      }).select().single()
-      if (orderErr) throw orderErr
-      await supabase.from('order_status_history').insert({ order_id: order.id, from_status: null, to_status: initialStatus, notes: 'Pedido criado pelo cliente' })
+      const { data: createdOrder, error: createOrderErr } = await supabase
+        .rpc('public_create_order', {
+          p_customer_id: customer.id,
+          p_medication_id: medicationId,
+          p_zone_id: mapLocation.zone?.id || null,
+          p_delivery_address: fullAddress,
+          p_delivery_fee: mapLocation.zone?.delivery_fee ?? 0,
+          p_delivery_lat: mapLocation.lat || null,
+          p_delivery_lng: mapLocation.lng || null,
+          p_delivery_distance_km: mapLocation.distanceKm || null,
+          p_payment_method: form.paymentMethod,
+          p_customer_notes: form.addressDetail || null,
+          p_needs_prescription: needsRx,
+        })
+        .single()
 
-      // Upload receita — rollback do pedido se falhar (evitar pedido aberto sem receita)
+      if (createOrderErr) {
+        throw new Error('Erro ao criar pedido: ' + createOrderErr.message)
+      }
+
+      const order = createdOrder
+
+      // Upload receita — se falhar, a RPC de upload cancela/actualiza o pedido com segurança.
       if (prescriptionFile && needsRx) {
         try {
-          await uploadPrescription(order.id, prescriptionFile)
+          await uploadPublicPrescription(order.id, prescriptionFile)
         } catch (uploadErr) {
-          await supabase.from('orders').update({
-            status: ORDER_STATUS.CANCELLED,
-            cancellation_reason: 'Falha no upload da receita — pedido cancelado automaticamente.',
-          }).eq('id', order.id)
-          await supabase.from('order_status_history').insert({
-            order_id: order.id, from_status: initialStatus,
-            to_status: ORDER_STATUS.CANCELLED, notes: 'Cancelado: falha no envio da receita.',
-          })
+          await supabase.rpc('public_cancel_order_after_prescription_failure', {
+            p_order_id: order.id,
+            p_reason: 'Falha no upload da receita — pedido cancelado automaticamente.',
+          }).catch(() => null)
           throw new Error(
             'Não foi possível enviar a receita médica. O pedido foi cancelado. ' +
             'Por favor tente novamente. (' + (uploadErr?.message || 'erro de upload') + ')'
