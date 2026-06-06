@@ -85,15 +85,16 @@ const MAP_FIELDS = [
 
 const PAYMENT_PROVIDERS = [
   { value: '',           label: 'Sem gateway (manual)' },
-  { value: 'mpesa_api',  label: 'M-Pesa API (Vodacom MZ)' },
-  { value: 'emola_api',  label: 'e-Mola API (Telecel MZ)' },
+  { value: 'debitopay',  label: 'Débito Pay (M-Pesa/e-Mola)' },
+  { value: 'mpesa_api',  label: 'M-Pesa API directa (Vodacom MZ)' },
+  { value: 'emola_api',  label: 'e-Mola API directa' },
   { value: 'paydunya',   label: 'PayDunya' },
 ]
 
 const PAYMENT_FIELDS = [
-  { key: 'payment_gateway_api_key',       label: 'API Key / Client Secret', placeholder: '••••••••••••', type: 'password', hint: 'Chave de acesso fornecida pelo gateway de pagamento.' },
-  { key: 'payment_gateway_merchant_code', label: 'Código do comerciante',   placeholder: 'MER-12345',    type: 'text',     hint: 'Service Provider Code ou Merchant ID atribuído ao negócio.' },
-  { key: 'payment_gateway_webhook_secret',label: 'Webhook Secret',          placeholder: '••••••••••••', type: 'password', hint: 'Chave para validar callbacks recebidos do gateway.' },
+  { key: 'payment_gateway_merchant_code', label: 'Merchant ID',             placeholder: '844d4ae3-...', type: 'text',     hint: 'Identificador público do comerciante. As chaves secretas ficam nos Supabase Secrets.' },
+  { key: 'payment_gateway_wallet_id',      label: 'Wallet ID',               placeholder: '52539',        type: 'text',     hint: 'Carteira Débito Pay usada para receber cobranças.' },
+  { key: 'payment_gateway_webhook_secret', label: 'Webhook Secret',          placeholder: '••••••••••••', type: 'password', hint: 'Opcional. Use apenas se configurar validação de webhook no gateway.' },
 ]
 
 function TemplateEditor({ def, value, onChange }) {
@@ -408,7 +409,7 @@ export function SystemConfigPage() {
 
             <div className="card p-5 space-y-4">
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-                <strong>Importante:</strong> chaves reais de gateway e webhook devem ser guardadas em secrets/Edge Functions quando a integração entrar em produção. Esta área mantém o fluxo preparado e documentado.
+                <strong>Importante:</strong> chaves reais do gateway devem ser guardadas em Supabase Secrets/Edge Functions. Não cole a sk_sandbox ou sk_live nesta página. Esta área mantém o fluxo preparado e documentado.
               </div>
               <div>
                 <label className="label">Fornecedor</label>
