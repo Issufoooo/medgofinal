@@ -3,14 +3,9 @@ import { supabase } from '../lib/supabase'
 /**
  * Pagamentos MedGo
  *
- * Estado actual:
- *   - CASH_ON_DELIVERY: funcional — operador confirma manualmente
- *   - MPESA / EMOLA: infraestrutura preparada, gateway ainda não activo
- *
- * Quando payment_gateway_enabled = 'false' em system_config,
- * pagamentos online mostram aviso e ficam em PENDING.
- * O pedido NÃO é cancelado — fica aguardando confirmação do operador.
- * O operador trata o pagamento fora do sistema até o gateway estar activo.
+ * CASH_ON_DELIVERY continua manual.
+ * MPESA / EMOLA são cobrados pela Débito Pay através de Supabase Edge Functions.
+ * Credenciais da Débito Pay ficam apenas nos Supabase Secrets.
  */
 
 async function isGatewayEnabled() {
@@ -25,35 +20,43 @@ async function isGatewayEnabled() {
 export async function initiatePayment({ orderId, method, amount, phone }) {
   if (method === 'CASH_ON_DELIVERY') {
     return {
-      success:  true,
-      method:   'CASH_ON_DELIVERY',
-      manual:   true,
-      message:  'Pagamento na entrega. O operador confirmará quando o motoboy entregar.',
+      success: true,
+      method: 'CASH_ON_DELIVERY',
+      manual: true,
+      message: 'Pagamento na entrega. O operador confirmará quando o motoboy entregar.',
     }
   }
 
   const gatewayOn = await isGatewayEnabled()
 
   if (!gatewayOn) {
-    // Gateway não está activo — não tentar pagamento real
     await supabase.from('orders').update({ payment_status: 'PENDING' }).eq('id', orderId)
     return {
-      success:  false,
-      pending:  true,
+      success: false,
+      pending: true,
       method,
-      reason:   'gateway_not_configured',
-      message:  'Pagamento online ainda não disponível nesta versão. O operador irá contactá-lo para confirmar o método de pagamento alternativo.',
+      reason: 'gateway_not_configured',
+      message: 'Pagamento online ainda não está activo. O operador irá contactar o cliente.',
     }
   }
 
-  // Aqui entrará a lógica real do gateway (M-Pesa / e-Mola / PayDunya)
-  // quando estiver configurado. Por agora retorna pending.
-  return {
-    success: false,
-    pending: true,
-    reason:  'gateway_not_implemented',
-    message: 'Gateway em configuração. O operador irá contactá-lo.',
+  return createDebitopayCharge({ orderId, method, amount, phone })
+}
+
+export async function createDebitopayCharge({ orderId, method, amount, phone }) {
+  const { data, error } = await supabase.functions.invoke('debitopay-create-payment', {
+    body: { orderId, method, amount, phone },
+  })
+
+  if (error) {
+    throw new Error(error.message || 'Não foi possível contactar a função de pagamento.')
   }
+
+  if (!data?.success) {
+    throw new Error(data?.message || data?.reason || 'Não foi possível criar a cobrança na Débito Pay.')
+  }
+
+  return data
 }
 
 export async function getPaymentStatus(orderId) {
@@ -66,14 +69,27 @@ export async function getPaymentStatus(orderId) {
   return data
 }
 
-export async function confirmCODPayment({ orderId, actorId }) {
+export async function getPaymentTransactions(orderId) {
+  const { data, error } = await supabase
+    .from('payment_transactions')
+    .select('*')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data || []
+}
+
+export async function confirmCODPayment({ orderId, reference }) {
   const { error } = await supabase
     .from('orders')
-    .update({ payment_status: 'CONFIRMED' })
+    .update({
+      payment_status: 'CONFIRMED',
+      payment_reference: reference || null,
+    })
     .eq('id', orderId)
-  if (error) throw new Error('Erro ao confirmar pagamento COD: ' + error.message)
+  if (error) throw new Error('Erro ao confirmar pagamento: ' + error.message)
   return { confirmed: true }
 }
 
-// Alias para retrocompatibilidade com OrderDetailPage
 export const confirmPaymentManually = confirmCODPayment
