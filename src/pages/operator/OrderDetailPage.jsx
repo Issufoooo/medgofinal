@@ -11,7 +11,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { BlacklistAlert } from '../../components/dashboard/BlacklistAlert'
 import { OrderStatusTimeline } from '../../components/dashboard/OrderStatusTimeline'
 import { OrderMapView } from '../../components/dashboard/OrderMapView'
-import { confirmPaymentManually } from '../../services/paymentService'
+import { confirmPaymentManually, createDebitopayCharge } from '../../services/paymentService'
 import { buildTrackingUrl, sendNotification } from '../../services/notificationService'
 import { confirmPharmacyAndPrice, updateOrderStatus } from '../../services/orderService'
 import { requestCancellation } from '../../services/cancellationService'
@@ -44,6 +44,7 @@ const PAY_LABELS = {
 
 const PAY_STATUS_LABELS = {
   PENDING: 'Pendente',
+  AWAITING_CONFIRMATION: 'A aguardar confirmação',
   CONFIRMED: 'Confirmado',
   FAILED: 'Falhou',
   REFUNDED: 'Reembolsado',
@@ -523,11 +524,38 @@ function MarkPaymentForm({ order, onSuccess }) {
   const notify = useNotificationStore()
   const qc = useQueryClient()
 
+  const defaultPhone = order.customer?.whatsapp_number || ''
   const [reference, setReference] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [phone, setPhone] = useState(defaultPhone)
+  const [loadingManual, setLoadingManual] = useState(false)
+  const [loadingCharge, setLoadingCharge] = useState(false)
 
-  const handleSubmit = async () => {
-    setLoading(true)
+  const isOnlineMethod = ['MPESA', 'EMOLA'].includes(order.payment_method)
+  const canCreateCharge = isOnlineMethod && Number(order.total_price || 0) > 0
+
+  const handleCreateCharge = async () => {
+    setLoadingCharge(true)
+
+    try {
+      const result = await createDebitopayCharge({
+        orderId: order.id,
+        method: order.payment_method,
+        amount: Number(order.total_price || 0),
+        phone: phone.trim(),
+      })
+
+      notify.success(result.message || 'Cobrança enviada para o cliente.')
+      qc.invalidateQueries({ queryKey: ['order', order.id] })
+      onSuccess?.()
+    } catch (err) {
+      notify.error(err.message)
+    } finally {
+      setLoadingCharge(false)
+    }
+  }
+
+  const handleManualConfirm = async () => {
+    setLoadingManual(true)
 
     try {
       await confirmPaymentManually({
@@ -542,41 +570,102 @@ function MarkPaymentForm({ order, onSuccess }) {
     } catch (err) {
       notify.error(err.message)
     } finally {
-      setLoading(false)
+      setLoadingManual(false)
     }
   }
 
   return (
     <div className="space-y-4">
-      <Alert type="info">
-        Confirme que o pagamento foi recebido via{' '}
-        {order.payment_method === 'MPESA' ? 'M-Pesa' : 'e-Mola'}.
-        Opcional: introduza o ID da transacção para rastreabilidade.
-      </Alert>
+      {isOnlineMethod ? (
+        <Alert type="info" title="Cobrança online via Débito Pay">
+          Envie uma cobrança {order.payment_method === 'MPESA' ? 'M-Pesa' : 'e-Mola'} para o cliente.
+          O pedido fica a aguardar confirmação até o webhook da Débito Pay marcar o pagamento como recebido.
+        </Alert>
+      ) : (
+        <Alert type="info">
+          Confirme que o pagamento foi recebido antes de avançar o pedido.
+        </Alert>
+      )}
 
-      <div>
-        <label className="label">
-          ID / Referência da transacção{' '}
-          <span className="text-slate-400 font-normal">(opcional)</span>
-        </label>
-        <input
-          type="text"
-          value={reference}
-          onChange={(e) => setReference(e.target.value)}
-          placeholder="Ex: MPH01234567890"
-          className="input font-mono"
-        />
+      {isOnlineMethod && (
+        <div className="rounded-2xl border border-teal-100 bg-teal-50/60 p-4 space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-widest text-teal-700">Cobrança automática</p>
+              <p className="text-sm text-slate-600 mt-1">
+                Total a cobrar: <strong className="text-slate-900">{fmt(order.total_price)}</strong>
+              </p>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-extrabold text-teal-700 border border-teal-100">
+              Sandbox
+            </span>
+          </div>
+
+          <div>
+            <label className="label">Número do cliente para cobrança</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Ex: +258 84 000 0000"
+              className="input"
+            />
+            <p className="label-hint">Use o número M-Pesa/e-Mola que deve receber o pedido de pagamento.</p>
+          </div>
+
+          <button
+            onClick={handleCreateCharge}
+            disabled={loadingCharge || !canCreateCharge}
+            className="btn-primary w-full"
+          >
+            {loadingCharge ? (
+              <>
+                <Spinner size="sm" /> A enviar cobrança...
+              </>
+            ) : (
+              `Enviar cobrança ${order.payment_method === 'MPESA' ? 'M-Pesa' : 'e-Mola'}`
+            )}
+          </button>
+
+          {!canCreateCharge && (
+            <p className="text-xs font-semibold text-amber-700">
+              Confirme primeiro o preço final do pedido antes de enviar cobrança.
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
+        <div>
+          <p className="text-xs font-extrabold uppercase tracking-widest text-slate-400">Confirmação manual</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Use apenas se o pagamento já tiver sido confirmado fora do webhook.
+          </p>
+        </div>
+
+        <div>
+          <label className="label">
+            ID / Referência da transacção <span className="text-slate-400 font-normal">(opcional)</span>
+          </label>
+          <input
+            type="text"
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            placeholder="Ex: MPH01234567890"
+            className="input font-mono"
+          />
+        </div>
+
+        <button onClick={handleManualConfirm} disabled={loadingManual} className="btn-secondary w-full">
+          {loadingManual ? (
+            <>
+              <Spinner size="sm" /> A confirmar...
+            </>
+          ) : (
+            'Confirmar pagamento manualmente'
+          )}
+        </button>
       </div>
-
-      <button onClick={handleSubmit} disabled={loading} className="btn-primary w-full">
-        {loading ? (
-          <>
-            <Spinner size="sm" /> A confirmar...
-          </>
-        ) : (
-          'Confirmar pagamento recebido'
-        )}
-      </button>
     </div>
   )
 }
@@ -818,7 +907,7 @@ export function OrderDetailPage() {
 
       {order.status === 'CONFIRMED' && order.payment_status === 'PENDING' && (
         <Alert type="warning" title="Pagamento pendente">
-          Pedido confirmado mas pagamento ainda por receber. Verificar antes de despachar.
+          Pedido confirmado, mas o pagamento ainda está pendente. Envie cobrança ou confirme manualmente antes de despachar.
         </Alert>
       )}
 
@@ -941,7 +1030,7 @@ export function OrderDetailPage() {
                       d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  Confirmar pagamento recebido
+                  Enviar cobrança / confirmar pagamento
                 </button>
               )}
 
