@@ -188,7 +188,7 @@ export function OrderPage() {
       // Estratégia oficial: o cliente inicia a conversa primeiro na ThankYouPage,
       // reduzindo custo e evitando enviar tracking/pagamento antes da confirmação operacional.
       await finishShipmentAnimation()
-      navigate('/obrigado?token=' + order.tracking_token)
+      navigate('/obrigado?token=' + order.tracking_token + '&med=' + encodeURIComponent(medication.commercial_name || medication.generic_name || 'o seu medicamento'))
     } catch (err) {
       await finishShipmentAnimation()
       const message = err?.message || 'Ocorreu um erro ao enviar o pedido. Por favor tente novamente.'
@@ -375,6 +375,7 @@ export function OrderPage() {
             disabled={submitting || !mapLocation?.zone}
             className={`ship-submit-btn w-full ${isRestricted ? 'ship-submit-btn--restricted' : ''} ${submitting ? 'is-submitting' : ''}`}
             aria-busy={submitting}
+            aria-label={submitting ? 'A enviar pedido' : submitLabel}
           >
             <span className="ship-submit-btn__content">
               <span className="ship-submit-btn__icon" aria-hidden="true">
