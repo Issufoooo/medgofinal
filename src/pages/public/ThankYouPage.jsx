@@ -1,13 +1,10 @@
 /**
  * ThankYouPage — Página de confirmação após criação do pedido.
  *
- * Estratégia WhatsApp (Meta Cloud API — custo zero):
- *   O cliente inicia a conversa via wa.me ANTES de o operador enviar qualquer
- *   mensagem. Isso abre a janela gratuita de 24h da Meta, evitando custo por
- *   mensagem template iniciada pelo negócio.
- *
- * NÃO enviar tracking link automático aqui — o operador envia após confirmar
- * farmácia e preço (estado AWAITING_CLIENT).
+ * Fluxo com WhatsApp API:
+ *   O cliente inicia a primeira mensagem via wa.me com a referência do pedido.
+ *   Quando a API/webhook estiver ligada, essa conversa fica associada ao pedido
+ *   e o operador consegue continuar o atendimento pelo painel.
  */
 
 import { useSearchParams, Link } from 'react-router-dom'
@@ -30,6 +27,17 @@ function WhatsAppIcon() {
   )
 }
 
+
+const DEFAULT_PUBLIC_WHATSAPP = '258842017232'
+
+function normalizePublicWhatsApp(value) {
+  const digits = String(value || '').replace(/\D/g, '')
+  if (!digits) return DEFAULT_PUBLIC_WHATSAPP
+  if (digits.startsWith('258')) return digits
+  if (/^8[2-7]\d{7}$/.test(digits)) return `258${digits}`
+  return digits
+}
+
 export function ThankYouPage() {
   const [params] = useSearchParams()
   const token    = params.get('token')
@@ -49,17 +57,17 @@ export function ThankYouPage() {
   })
 
   const platformName = cfg?.operation_name || cfg?.platform_name || 'MedGo'
-  const waNumber     = cfg?.whatsapp_number || ''
+  const rawWaNumber  = cfg?.whatsapp_number || import.meta.env.VITE_PUBLIC_WHATSAPP_NUMBER || DEFAULT_PUBLIC_WHATSAPP
+  const waNumber     = normalizePublicWhatsApp(rawWaNumber)
 
-  // Mensagem que o cliente vai enviar — abre janela gratuita de 24h
-  const waMessage = waNumber
-    ? `Olá ${platformName}! Acabei de fazer um pedido de *${medName}*. ` +
-      (token ? `Referência: ${token}` : '')
-    : ''
+  // Mensagem inicial enviada pelo cliente para a WhatsApp API associar a conversa ao pedido.
+  // O CTA não pode desaparecer se a configuração ainda não tiver sido preenchida;
+  // por isso existe fallback para o número público da operação.
+  const waMessage = `Olá ${platformName}! Acabei de fazer um pedido de *${medName}*. ` +
+    (token ? `A referência do meu pedido é: ${token}. ` : '') +
+    `Quero continuar o atendimento por aqui.`
 
-  const waLink = waNumber
-    ? `https://wa.me/${waNumber.replace(/\D/g, '')}?text=${encodeURIComponent(waMessage)}`
-    : null
+  const waLink = `https://wa.me/${waNumber}?text=${encodeURIComponent(waMessage)}`
 
   return (
     <div className="min-h-svh bg-gradient-to-b from-teal-50 to-white px-4 py-12">
@@ -85,6 +93,30 @@ export function ThankYouPage() {
           )}
         </div>
 
+        {/* CTA WhatsApp — primeira mensagem do cliente */}
+        <div className="card p-5 space-y-4 border-2 border-green-200 bg-[linear-gradient(180deg,#f0fdf4_0%,#ffffff_100%)]">
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-green-600">Próximo passo obrigatório</p>
+              <h2 className="mt-1 text-lg font-extrabold text-slate-950">Envie a primeira mensagem no WhatsApp</h2>
+              <p className="mt-1 text-sm text-slate-600 leading-relaxed">
+                Toque no botão abaixo e envie a mensagem pré-preenchida. A conversa fica ligada a este pedido para o operador continuar o atendimento pela API.
+              </p>
+            </div>
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] hover:bg-[#1ebe5c] text-white font-extrabold py-4 px-4 shadow-lg shadow-green-200/70 transition-colors"
+            >
+              <WhatsAppIcon />
+              Abrir WhatsApp e enviar mensagem
+            </a>
+            <div className="rounded-2xl border border-green-200 bg-white/80 px-4 py-3">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Mensagem preparada</p>
+              <p className="mt-1 text-sm text-slate-700 leading-relaxed">{waMessage}</p>
+            </div>
+        </div>
+
         {/* Próximos passos */}
         <div className="card p-5 space-y-3">
           <h2 className="font-extrabold text-slate-900 text-sm uppercase tracking-wider">O que acontece agora?</h2>
@@ -92,20 +124,20 @@ export function ThankYouPage() {
             {[
               {
                 step: '1',
-                title: 'Validação',
-                desc:  'A equipa verifica a disponibilidade do medicamento na farmácia parceira.',
+                title: 'Pedido registado',
+                desc:  'O pedido já entrou na fila do operador para validação.',
                 tone:  'teal',
               },
               {
                 step: '2',
-                title: 'Confirmação de preço',
-                desc:  'Receberá uma mensagem WhatsApp com o preço final para confirmar antes de pagar.',
+                title: 'WhatsApp vinculado',
+                desc:  'Depois da sua primeira mensagem, a conversa fica associada à referência do pedido.',
                 tone:  'slate',
               },
               {
                 step: '3',
-                title: 'Entrega',
-                desc:  'Após confirmação, o motoboy parte para a entrega no endereço indicado.',
+                title: 'Confirmação e entrega',
+                desc:  'O operador confirma disponibilidade, preço e avanço da entrega pelo WhatsApp.',
                 tone:  'slate',
               },
             ].map(s => (
@@ -122,32 +154,10 @@ export function ThankYouPage() {
           </div>
         </div>
 
-        {/* CTA WhatsApp — cliente inicia a conversa */}
-        {waLink && (
-          <div className="card p-5 space-y-3">
-            <h2 className="font-extrabold text-slate-900 text-sm">Fique a par em tempo real</h2>
-            <p className="text-sm text-slate-500 leading-relaxed">
-              Envie-nos uma mensagem agora para receber actualizações directamente no WhatsApp.
-            </p>
-            <a
-              href={waLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] hover:bg-[#1ebe5c] text-white font-semibold py-3 px-4 transition-colors"
-            >
-              <WhatsAppIcon />
-              Falar com a {platformName}
-            </a>
-            <p className="text-xs text-center text-slate-400">
-              Ao enviar a mensagem, a equipa consegue identificar o seu pedido automaticamente.
-            </p>
-          </div>
-        )}
-
         {/* Links */}
         <div className="flex flex-col gap-3">
           <p className="text-center text-xs text-slate-400 leading-relaxed px-4">
-            O link de acompanhamento será enviado pela equipa depois de confirmar farmácia, disponibilidade e valor final.
+            As próximas actualizações, confirmação de preço e acompanhamento serão enviados no WhatsApp ligado a este pedido.
           </p>
           <Link to="/" className="btn-secondary text-center">
             Voltar ao início
