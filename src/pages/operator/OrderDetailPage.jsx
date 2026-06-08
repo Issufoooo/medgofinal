@@ -50,6 +50,15 @@ const PAY_STATUS_LABELS = {
   REFUNDED: 'Reembolsado',
 }
 
+const ONLINE_PAYMENT_METHODS = ['MPESA', 'EMOLA']
+const PAYMENT_ACTION_STATUSES = ['PENDING', 'AWAITING_CONFIRMATION', 'FAILED']
+
+function canManageOnlinePayment(order) {
+  return ONLINE_PAYMENT_METHODS.includes(order?.payment_method) &&
+    PAYMENT_ACTION_STATUSES.includes(order?.payment_status) &&
+    order?.status !== 'CANCELLED'
+}
+
 const STOCK_STALE_DAYS = 7
 function getStockAgeLabel(dateValue) {
   if (!dateValue) return 'sem confirmação recente'
@@ -530,8 +539,8 @@ function MarkPaymentForm({ order, onSuccess }) {
   const [loadingManual, setLoadingManual] = useState(false)
   const [loadingCharge, setLoadingCharge] = useState(false)
 
-  const isOnlineMethod = ['MPESA', 'EMOLA'].includes(order.payment_method)
-  const canCreateCharge = isOnlineMethod && Number(order.total_price || 0) > 0
+  const isOnlineMethod = ONLINE_PAYMENT_METHODS.includes(order.payment_method)
+  const canCreateCharge = isOnlineMethod && Number(order.total_price || 0) > 0 && order.payment_status !== 'CONFIRMED'
 
   const handleCreateCharge = async () => {
     setLoadingCharge(true)
@@ -578,8 +587,8 @@ function MarkPaymentForm({ order, onSuccess }) {
     <div className="space-y-4">
       {isOnlineMethod ? (
         <Alert type="info" title="Cobrança online via Débito Pay">
-          Envie uma cobrança {order.payment_method === 'MPESA' ? 'M-Pesa' : 'e-Mola'} para o cliente.
-          O pedido fica a aguardar confirmação até o webhook da Débito Pay marcar o pagamento como recebido.
+          Envie uma cobrança {order.payment_method === 'MPESA' ? 'M-Pesa' : 'e-Mola'} para o cliente nesta etapa de confirmação.
+          O pedido pode continuar a aguardar confirmação do cliente enquanto a Débito Pay valida o pagamento pelo webhook.
         </Alert>
       ) : (
         <Alert type="info">
@@ -591,7 +600,7 @@ function MarkPaymentForm({ order, onSuccess }) {
         <div className="rounded-2xl border border-teal-100 bg-teal-50/60 p-4 space-y-3">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-extrabold uppercase tracking-widest text-teal-700">Cobrança automática</p>
+              <p className="text-xs font-extrabold uppercase tracking-widest text-teal-700">Cobrança automática {order.payment_status === 'AWAITING_CONFIRMATION' ? '· já enviada' : ''}</p>
               <p className="text-sm text-slate-600 mt-1">
                 Total a cobrar: <strong className="text-slate-900">{fmt(order.total_price)}</strong>
               </p>
@@ -623,7 +632,7 @@ function MarkPaymentForm({ order, onSuccess }) {
                 <Spinner size="sm" /> A enviar cobrança...
               </>
             ) : (
-              `Enviar cobrança ${order.payment_method === 'MPESA' ? 'M-Pesa' : 'e-Mola'}`
+              `${order.payment_status === 'AWAITING_CONFIRMATION' ? 'Reenviar' : 'Enviar'} cobrança ${order.payment_method === 'MPESA' ? 'M-Pesa' : 'e-Mola'}`
             )}
           </button>
 
@@ -905,7 +914,13 @@ export function OrderDetailPage() {
         />
       )}
 
-      {order.status === 'CONFIRMED' && order.payment_status === 'PENDING' && (
+      {canManageOnlinePayment(order) && order.status === ORDER_STATUS.AWAITING_CLIENT && Number(order.total_price || 0) > 0 && (
+        <Alert type="info" title="Cobrança disponível nesta etapa">
+          O pedido está a aguardar resposta do cliente. Esta é a etapa correcta para enviar a cobrança M-Pesa/e-Mola e testar a Débito Pay antes de avançar o pedido.
+        </Alert>
+      )}
+
+      {order.status === 'CONFIRMED' && PAYMENT_ACTION_STATUSES.includes(order.payment_status) && (
         <Alert type="warning" title="Pagamento pendente">
           Pedido confirmado, mas o pagamento ainda está pendente. Envie cobrança ou confirme manualmente antes de despachar.
         </Alert>
@@ -1015,9 +1030,7 @@ export function OrderDetailPage() {
               </button>
             )}
 
-            {['MPESA', 'EMOLA'].includes(order.payment_method) &&
-              order.payment_status === 'PENDING' &&
-              order.status !== 'CANCELLED' && (
+            {canManageOnlinePayment(order) && (
                 <button
                   onClick={() => setModal('payment')}
                   className="btn-secondary col-span-full w-full border-orange-200 text-orange-700 hover:bg-orange-50"
@@ -1030,7 +1043,7 @@ export function OrderDetailPage() {
                       d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  Enviar cobrança / confirmar pagamento
+                  {order.payment_status === 'AWAITING_CONFIRMATION' ? 'Reenviar cobrança / confirmar pagamento' : 'Enviar cobrança / confirmar pagamento'}
                 </button>
               )}
 
@@ -1066,27 +1079,44 @@ export function OrderDetailPage() {
             )}
 
             {order.status === ORDER_STATUS.AWAITING_CLIENT && (
-              <button
-                onClick={async () => {
-                  try {
-                    const trackingUrl = await buildTrackingUrl(order.tracking_token)
-                    await sendNotification('price_confirmation', {
-                      order,
-                      customer: order.customer,
-                      trackingUrl,
-                    })
-                    notify.success('Notificação reenviada ao cliente.')
-                  } catch (err) {
-                    notify.error(err.message)
-                  }
-                }}
-                className="btn-secondary col-span-full w-full"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4l16 8-16 8V4z" />
-                </svg>
-                Reenviar notificação ao cliente
-              </button>
+              <>
+                <button
+                  onClick={async () => {
+                    try {
+                      const trackingUrl = await buildTrackingUrl(order.tracking_token)
+                      await sendNotification('price_confirmation', {
+                        order,
+                        customer: order.customer,
+                        trackingUrl,
+                      })
+                      notify.success('Notificação reenviada ao cliente.')
+                    } catch (err) {
+                      notify.error(err.message)
+                    }
+                  }}
+                  className="btn-secondary col-span-full w-full"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4l16 8-16 8V4z" />
+                  </svg>
+                  Reenviar notificação ao cliente
+                </button>
+
+                <button
+                  onClick={() => handleAdvance(ORDER_STATUS.CONFIRMED, 'Cliente confirmou o pedido pelo WhatsApp/operador')}
+                  disabled={updateStatusMutation.isPending}
+                  className="btn-primary col-span-full w-full"
+                >
+                  {updateStatusMutation.isPending ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  Cliente confirmou — avançar pedido
+                </button>
+              </>
             )}
 
             {order.status === ORDER_STATUS.CONFIRMED && (
@@ -1153,7 +1183,7 @@ export function OrderDetailPage() {
         )}
       </Modal>
 
-      <Modal open={modal === 'payment'} onClose={() => setModal(null)} title="Confirmar pagamento" size="sm">
+      <Modal open={modal === 'payment'} onClose={() => setModal(null)} title="Cobrança e pagamento" size="sm">
         <MarkPaymentForm order={order} onSuccess={() => setModal(null)} />
       </Modal>
 
