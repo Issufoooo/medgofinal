@@ -79,6 +79,36 @@ Deno.serve(async (req) => {
         const msgText = msg.text?.body || ''
         const msgId   = msg.id
 
+        // Procurar cliente pelo WhatsApp e associar ao último pedido
+        const { data: customer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('whatsapp_number', from)
+          .maybeSingle()
+
+        let orderId = null
+
+        if (customer?.id) {
+          const { data: order } = await supabase
+            .from('orders')
+            .select('id')
+            .eq('customer_id', customer.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          orderId = order?.id || null
+        }
+
+        // Guardar conversa WhatsApp
+        await supabase.from('whatsapp_messages').insert({
+          customer_id: customer?.id || null,
+          order_id: orderId,
+          direction: 'incoming',
+          message: msgText,
+          whatsapp_message_id: msgId,
+        }).catch((err) => console.error('[whatsapp] save message error', err))
+
         // Registar mensagem recebida no audit log
         await supabase.from('action_logs').insert({
           actor_id:    null,
