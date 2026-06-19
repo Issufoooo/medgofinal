@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, NavLink, useLocation, Outlet } from 'react-router-dom'
 import { MedGoLogo } from '../components/shared/MedGoLogo'
+import { ComoFuncionaModal } from '../components/public/ComoFuncionaModal'
+import { MagneticButton } from '../components/public/MagneticButton'
 
 function MenuIcon() {
   return (
@@ -9,7 +11,6 @@ function MenuIcon() {
     </svg>
   )
 }
-
 function CloseIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -17,7 +18,6 @@ function CloseIcon() {
     </svg>
   )
 }
-
 function HomeIcon() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -25,7 +25,6 @@ function HomeIcon() {
     </svg>
   )
 }
-
 function BoxIcon() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -33,8 +32,6 @@ function BoxIcon() {
     </svg>
   )
 }
-
-
 function InfoCircleIcon() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -46,10 +43,10 @@ function InfoCircleIcon() {
 export function PublicLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [comoOpen, setComoOpen] = useState(false)
   const location = useLocation()
-  useEffect(() => {
-    setMenuOpen(false)
-  }, [location.pathname])
+
+  useEffect(() => { setMenuOpen(false) }, [location.pathname])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)
@@ -57,54 +54,63 @@ export function PublicLayout() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  // Allow any link (footer, deep links) to still open the modal via #como-funciona
+  useEffect(() => {
+    if (location.hash === '#como-funciona') {
+      setComoOpen(true)
+      window.history.replaceState(null, '', location.pathname)
+    }
+  }, [location])
+
   const navCls = ({ isActive }) =>
-    `px-4 py-2.5 text-sm font-semibold rounded-full transition-colors ${
-      isActive
-        ? 'bg-teal-700 text-white'
-        : 'text-slate-600 hover:bg-teal-50 hover:text-teal-800'
+    `nav-underline px-4 py-2.5 text-sm font-semibold rounded-full transition-colors ${
+      isActive ? 'bg-teal-700 text-white' : 'text-slate-600 hover:bg-teal-50 hover:text-teal-800'
     }`
 
   return (
     <div className="min-h-svh flex flex-col bg-white">
       <header
-        className={`sticky top-0 z-40 transition-all duration-200 ${
+        className={`sticky top-0 z-40 transition-all duration-300 ${
           scrolled
             ? 'bg-white/95 backdrop-blur-md shadow-sm border-b border-teal-100'
             : 'bg-white/90 backdrop-blur-sm border-b border-teal-100/80'
         }`}
       >
         <div className="page-wrap">
-          <div className="flex items-center justify-between h-20">
-            <Link to="/" className="shrink-0" aria-label="MedGo">
-              <MedGoLogo size={28} />
+          <div className={`flex items-center justify-between transition-all duration-300 ${scrolled ? 'h-16' : 'h-20'}`}>
+            <Link to="/" className="shrink-0 transition-transform hover:scale-[1.03]" aria-label="MedGo">
+              <MedGoLogo size={scrolled ? 24 : 28} />
             </Link>
 
             <nav className="hidden md:flex items-center gap-2">
               <NavLink to="/" end className={navCls}>Início</NavLink>
               <NavLink to="/medicamentos" className={navCls}>Medicamentos</NavLink>
-              <a
-                href="/#como-funciona"
-                className="px-4 py-2.5 text-sm font-semibold rounded-full text-slate-600 hover:bg-teal-50 hover:text-teal-800 transition-colors"
-                onClick={e => {
-                  const el = document.getElementById('como-funciona')
-                  if (el) { e.preventDefault(); el.scrollIntoView({ behavior: 'smooth' }) }
-                }}
+              <button
+                onClick={() => setComoOpen(true)}
+                className="nav-underline px-4 py-2.5 text-sm font-semibold rounded-full text-slate-600 hover:bg-teal-50 hover:text-teal-800 transition-colors"
               >
                 Como funciona
-              </a>
+              </button>
             </nav>
 
             <div className="flex items-center gap-2">
-              <Link to="/medicamentos" className="hidden sm:inline-flex items-center justify-center rounded-full bg-teal-600 px-5 py-3 text-sm font-extrabold text-white shadow-card transition hover:bg-teal-700">
-                Pedir medicamento
-              </Link>
+              <MagneticButton className="hidden sm:inline-block" strength={0.25}>
+                <Link
+                  to="/medicamentos"
+                  className="cta-sweep inline-flex items-center justify-center rounded-full bg-teal-600 px-5 py-3 text-sm font-extrabold text-white shadow-card transition-all hover:bg-teal-700 hover:shadow-card-md hover:-translate-y-0.5"
+                >
+                  Pedir medicamento
+                </Link>
+              </MagneticButton>
               <button
                 onClick={() => setMenuOpen((v) => !v)}
-                className="md:hidden btn-icon"
+                className="md:hidden btn-icon transition-transform active:scale-90"
                 aria-label="Menu"
                 aria-expanded={menuOpen}
               >
-                {menuOpen ? <CloseIcon /> : <MenuIcon />}
+                <span className={`inline-block transition-transform duration-200 ${menuOpen ? 'rotate-90' : ''}`}>
+                  {menuOpen ? <CloseIcon /> : <MenuIcon />}
+                </span>
               </button>
             </div>
           </div>
@@ -112,25 +118,24 @@ export function PublicLayout() {
 
         {menuOpen && (
           <div className="md:hidden bg-white border-t border-teal-100 animate-slide-down pb-safe">
-            <div className="page-wrap py-4 space-y-2">
-              <Link to="/" className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-slate-50 text-sm font-semibold text-slate-700">
-                <HomeIcon />
-                Início
+            <div className="page-wrap py-4 space-y-1.5">
+              <Link to="/" className="menu-item-in flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-slate-50 text-sm font-semibold text-slate-700 transition-colors" style={{ animationDelay: '40ms' }}>
+                <HomeIcon /> Início
               </Link>
-              <Link to="/medicamentos" className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-slate-50 text-sm font-semibold text-slate-700">
-                <BoxIcon />
-                Medicamentos
+              <Link to="/medicamentos" className="menu-item-in flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-slate-50 text-sm font-semibold text-slate-700 transition-colors" style={{ animationDelay: '90ms' }}>
+                <BoxIcon /> Medicamentos
               </Link>
-              <a
-                href="/#como-funciona"
-                className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-teal-50 text-sm font-semibold text-teal-700"
-                onClick={() => setMenuOpen(false)}
+              <button
+                onClick={() => { setComoOpen(true); setMenuOpen(false) }}
+                className="menu-item-in flex w-full items-center gap-3 px-4 py-3 rounded-2xl hover:bg-teal-50 text-sm font-semibold text-teal-700 transition-colors"
+                style={{ animationDelay: '140ms' }}
               >
-                <InfoCircleIcon />
-                Como funciona
-              </a>
-              <div className="pt-2">
-                <Link to="/medicamentos" className="inline-flex w-full items-center justify-center rounded-full bg-teal-600 px-6 py-3 text-base font-extrabold text-white shadow-card transition hover:bg-teal-700">Pedir medicamento</Link>
+                <InfoCircleIcon /> Como funciona
+              </button>
+              <div className="pt-2 menu-item-in" style={{ animationDelay: '190ms' }}>
+                <Link to="/medicamentos" className="cta-sweep inline-flex w-full items-center justify-center rounded-full bg-teal-600 px-6 py-3 text-base font-extrabold text-white shadow-card transition hover:bg-teal-700">
+                  Pedir medicamento
+                </Link>
               </div>
             </div>
           </div>
@@ -161,9 +166,9 @@ export function PublicLayout() {
             <div>
               <p className="text-slate-950 font-semibold text-sm mb-4">Acesso rápido</p>
               <div className="space-y-2.5 text-sm">
-                <Link to="/" className="block hover:text-teal-700 transition-colors">Início</Link>
-                <Link to="/medicamentos" className="block hover:text-teal-700 transition-colors">Ver medicamentos</Link>
-                <a href="/#como-funciona" className="block hover:text-teal-700 transition-colors">Como funciona</a>
+                <Link to="/" className="block hover:text-teal-700 transition-colors w-fit">Início</Link>
+                <Link to="/medicamentos" className="block hover:text-teal-700 transition-colors w-fit">Ver medicamentos</Link>
+                <button onClick={() => setComoOpen(true)} className="block hover:text-teal-700 transition-colors text-left">Como funciona</button>
               </div>
             </div>
           </div>
@@ -173,6 +178,8 @@ export function PublicLayout() {
           </div>
         </div>
       </footer>
+
+      <ComoFuncionaModal open={comoOpen} onClose={() => setComoOpen(false)} />
     </div>
   )
 }
