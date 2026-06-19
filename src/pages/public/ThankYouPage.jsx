@@ -14,7 +14,14 @@ import { supabase }             from '../../lib/supabase'
 function CheckIcon() {
   return (
     <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+      <path
+        strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"
+        style={{
+          strokeDasharray: 24,
+          strokeDashoffset: 24,
+          animation: 'checkDraw 0.5s 0.35s cubic-bezier(.65,0,.35,1) forwards',
+        }}
+      />
     </svg>
   )
 }
@@ -74,9 +81,12 @@ export function ThankYouPage() {
       <div className="max-w-lg mx-auto space-y-6">
 
         {/* Hero */}
-        <div className="text-center space-y-4">
-          <div className="w-20 h-20 rounded-3xl bg-teal-500 flex items-center justify-center mx-auto shadow-lg shadow-teal-200">
-            <CheckIcon />
+        <div className="text-center space-y-4 animate-fade-up">
+          <div className="relative w-20 h-20 mx-auto">
+            <span className="absolute inset-0 rounded-3xl bg-teal-400 animate-ping" style={{ animationDuration: '1.8s', animationIterationCount: 2, opacity: 0.35 }} />
+            <div className="relative w-20 h-20 rounded-3xl bg-teal-500 flex items-center justify-center mx-auto shadow-lg shadow-teal-200 animate-scale-in">
+              <CheckIcon />
+            </div>
           </div>
           <div>
             <h1 className="text-2xl font-extrabold text-slate-900">Pedido recebido!</h1>
@@ -94,7 +104,7 @@ export function ThankYouPage() {
         </div>
 
         {/* CTA WhatsApp — primeira mensagem do cliente */}
-        <div className="card p-5 space-y-4 border-2 border-green-200 bg-[linear-gradient(180deg,#f0fdf4_0%,#ffffff_100%)]">
+        <div className="card p-5 space-y-4 border-2 border-green-200 bg-[linear-gradient(180deg,#f0fdf4_0%,#ffffff_100%)] animate-fade-up" style={{ animationDelay: '120ms', animationFillMode: 'backwards' }}>
             <div>
               <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-green-600">Próximo passo obrigatório</p>
               <h2 className="mt-1 text-lg font-extrabold text-slate-950">Envie a primeira mensagem no WhatsApp</h2>
@@ -106,9 +116,9 @@ export function ThankYouPage() {
               href={waLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] hover:bg-[#1ebe5c] text-white font-extrabold py-4 px-4 shadow-lg shadow-green-200/70 transition-colors"
+              className="wa-btn w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] text-white font-extrabold py-4 px-4 shadow-lg shadow-green-200/70"
             >
-              <WhatsAppIcon />
+              <span className="wa-btn-icon"><WhatsAppIcon /></span>
               Abrir WhatsApp e enviar mensagem
             </a>
             <div className="rounded-2xl border border-green-200 bg-white/80 px-4 py-3">
@@ -118,7 +128,7 @@ export function ThankYouPage() {
         </div>
 
         {/* Próximos passos */}
-        <div className="card p-5 space-y-3">
+        <div className="card p-5 space-y-3 animate-fade-up" style={{ animationDelay: '220ms', animationFillMode: 'backwards' }}>
           <h2 className="font-extrabold text-slate-900 text-sm uppercase tracking-wider">O que acontece agora?</h2>
           <div className="space-y-3">
             {[
@@ -140,8 +150,12 @@ export function ThankYouPage() {
                 desc:  'O operador confirma disponibilidade, preço e avanço da entrega pelo WhatsApp.',
                 tone:  'slate',
               },
-            ].map(s => (
-              <div key={s.step} className={`flex gap-3 p-3 rounded-xl border ${s.tone === 'teal' ? 'bg-teal-50 border-teal-200' : 'bg-slate-50 border-slate-100'}`}>
+            ].map((s, i) => (
+              <div
+                key={s.step}
+                className={`flex gap-3 p-3 rounded-xl border transition-colors animate-fade-up ${s.tone === 'teal' ? 'bg-teal-50 border-teal-200' : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}
+                style={{ animationDelay: `${300 + i * 90}ms`, animationFillMode: 'backwards' }}
+              >
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${s.tone === 'teal' ? 'bg-teal-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
                   {s.step}
                 </div>
@@ -155,11 +169,11 @@ export function ThankYouPage() {
         </div>
 
         {/* Links */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 animate-fade-up" style={{ animationDelay: '600ms', animationFillMode: 'backwards' }}>
           <p className="text-center text-xs text-slate-400 leading-relaxed px-4">
             As próximas actualizações, confirmação de preço e acompanhamento serão enviados no WhatsApp ligado a este pedido.
           </p>
-          <Link to="/" className="btn-secondary text-center">
+          <Link to="/" className="btn-secondary text-center transition-transform hover:-translate-y-0.5">
             Voltar ao início
           </Link>
         </div>
