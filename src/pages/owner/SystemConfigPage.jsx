@@ -7,41 +7,45 @@ import { Spinner } from '../../components/ui/Spinner'
 import { invalidatePricingCache } from '../../services/priceService'
 
 // ── WhatsApp message templates ────────────────────────────────
+// IMPORTANTE: as chaves abaixo (wa_tpl_*) e a sintaxe {{variavel}} têm de
+// corresponder exactamente ao que notificationService.js lê e interpola.
+// Mudar isto sem mudar lá quebra o envio de mensagens.
 const TEMPLATE_DEFS = [
   {
-    key: 'whatsapp_template_order_created',
+    key: 'wa_tpl_order_created',
     label: 'Pedido criado',
-    trigger: 'Mensagem manual opcional. Não deve ser enviada automaticamente antes da confirmação de preço.',
-    variables: ['{nome_cliente}', '{medicamento}'],
-    default: 'Olá {nome_cliente}!\n\nRecebemos a sua solicitação de *{medicamento}*. A nossa equipa ainda vai confirmar disponibilidade, documentação quando aplicável, e valor final.\n\nResponda a esta mensagem para continuar o atendimento pelo WhatsApp.\n\n— MedGo',
+    trigger: 'Usado na página de agradecimento, como mensagem pré-preenchida que o cliente envia para iniciar a conversa no WhatsApp.',
+    variables: ['{{customer_name}}', '{{medication_name}}', '{{tracking_url}}', '{{platform_name}}'],
+    default: 'Olá {{platform_name}}! Acabei de fazer um pedido de *{{medication_name}}*. Quero continuar o atendimento por aqui.\n\nAcompanhar: {{tracking_url}}',
+    publicNote: 'Este template é lido directamente pelo site público (sem login). Fica automaticamente visível ao cliente assim que guardar.',
   },
   {
-    key: 'whatsapp_template_price_confirmation',
+    key: 'wa_tpl_price_confirmation',
     label: 'Confirmação de preço',
-    trigger: 'Enviado quando o operador confirma a farmácia e preço',
-    variables: ['{nome_cliente}', '{medicamento}', '{preco_total}', '{link_tracking}'],
-    default: 'Olá {nome_cliente}! 💊\n\nTemos boas notícias sobre o seu pedido de *{medicamento}*.\n\nPreço total (incluindo entrega): *{preco_total} MZN*\n\nPara confirmar, responda *SIM* a esta mensagem. Caso não pretenda, responda *NÃO*.\n\nAcompanhe aqui: {link_tracking}\n\n— MedGo',
+    trigger: 'Enviado pelo operador quando confirma a farmácia e o preço final do pedido.',
+    variables: ['{{customer_name}}', '{{medication_name}}', '{{total_price}}', '{{tracking_url}}'],
+    default: 'Olá {{customer_name}}! 💊\n\nTemos boas notícias sobre o seu pedido de *{{medication_name}}*.\n\nPreço total (incluindo entrega): *{{total_price}}*\n\nPara confirmar, responda *SIM* a esta mensagem. Caso não pretenda, responda *NÃO*.\n\nAcompanhe aqui: {{tracking_url}}\n\n— MedGo',
   },
   {
-    key: 'whatsapp_template_dispatched',
+    key: 'wa_tpl_order_dispatched',
     label: 'Pedido despachado',
-    trigger: 'Enviado quando o motoboy parte para a entrega',
-    variables: ['{nome_cliente}', '{medicamento}', '{link_tracking}'],
-    default: 'Olá {nome_cliente}! 🛵\n\nO seu pedido de *{medicamento}* está a caminho!\n\nO nosso motoboy encontra-se a dirigir-se à sua morada. Fique disponível.\n\nAcompanhe: {link_tracking}\n\n— MedGo',
+    trigger: 'Enviado quando o motoboy parte para a entrega.',
+    variables: ['{{customer_name}}', '{{medication_name}}', '{{tracking_url}}'],
+    default: 'Olá {{customer_name}}! 🛵\n\nO seu pedido de *{{medication_name}}* está a caminho!\n\nO nosso motoboy encontra-se a dirigir-se à sua morada. Fique disponível.\n\nAcompanhe: {{tracking_url}}\n\n— MedGo',
   },
   {
-    key: 'whatsapp_template_delivered',
+    key: 'wa_tpl_order_delivered',
     label: 'Entrega concluída',
-    trigger: 'Enviado após confirmação de entrega',
-    variables: ['{nome_cliente}', '{medicamento}'],
-    default: 'Olá {nome_cliente}! ✅\n\nO seu pedido de *{medicamento}* foi entregue com sucesso.\n\nObrigado por confiar na MedGo! Qualquer questão, estamos à disposição.\n\n— MedGo',
+    trigger: 'Enviado após confirmação de entrega.',
+    variables: ['{{customer_name}}', '{{medication_name}}'],
+    default: 'Olá {{customer_name}}! ✅\n\nO seu pedido de *{{medication_name}}* foi entregue com sucesso.\n\nObrigado por confiar na MedGo! Qualquer questão, estamos à disposição.\n\n— MedGo',
   },
   {
-    key: 'whatsapp_template_cancelled',
+    key: 'wa_tpl_order_cancelled',
     label: 'Pedido cancelado',
-    trigger: 'Enviado quando um pedido é cancelado',
-    variables: ['{nome_cliente}', '{medicamento}', '{motivo}'],
-    default: 'Olá {nome_cliente}.\n\nLamentamos informar que o seu pedido de *{medicamento}* foi cancelado.\n\nMotivo: {motivo}\n\nPara qualquer questão, contacte-nos. Estamos aqui para ajudar.\n\n— MedGo',
+    trigger: 'Enviado quando um pedido é cancelado.',
+    variables: ['{{customer_name}}', '{{medication_name}}', '{{cancellation_reason}}'],
+    default: 'Olá {{customer_name}}.\n\nLamentamos informar que o seu pedido de *{{medication_name}}* foi cancelado.\n\nMotivo: {{cancellation_reason}}\n\nPara qualquer questão, contacte-nos. Estamos aqui para ajudar.\n\n— MedGo',
   },
 ]
 
@@ -109,13 +113,17 @@ function TemplateEditor({ def, value, onChange }) {
         className="w-full flex items-start justify-between gap-3 text-left"
       >
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
+          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
             <p className="font-extrabold text-slate-900 text-sm">{def.label}</p>
             {value && value !== def.default && (
               <span className="text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 px-1.5 py-0.5 rounded-full">Personalizado</span>
             )}
+            {def.publicNote && (
+              <span className="text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded-full">Visível ao público</span>
+            )}
           </div>
           <p className="text-xs text-slate-500">{def.trigger}</p>
+          {def.publicNote && <p className="text-xs text-orange-600 mt-1">{def.publicNote}</p>}
         </div>
         <svg className={`w-4 h-4 text-slate-400 transition-transform shrink-0 mt-0.5 ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/>
@@ -189,10 +197,21 @@ export function SystemConfigPage() {
     setDirty(true)
   }
 
+  // Chaves que o site público (sem sessão) precisa de ler directamente.
+  // Tudo o resto fica restrito a staff autenticado (RLS: config_staff_read).
+  const PUBLIC_KEYS = new Set([
+    'whatsapp_number', 'operation_name', 'platform_name', 'platform_phone',
+    'tracking_base_url', 'wa_tpl_order_created',
+  ])
+
   const handleSave = async () => {
     setSaving(true)
     try {
-      const upserts = Object.entries(localConfig).map(([key, value]) => ({ key, value }))
+      const upserts = Object.entries(localConfig).map(([key, value]) => ({
+        key,
+        value,
+        is_public: PUBLIC_KEYS.has(key),
+      }))
       if (upserts.length === 0) { notify.info('Sem alterações para guardar.'); return }
 
       const { error } = await supabase.from('system_config').upsert(upserts, { onConflict: 'key' })
@@ -275,20 +294,39 @@ export function SystemConfigPage() {
               <p className="text-sm text-slate-500">Estado da integração e como funciona sem API.</p>
             </div>
 
-            <div className="card p-5">
-              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+            <div className="card p-5 space-y-4">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
                 <strong>Nota de segurança:</strong> campos de API servem para preparar a integração. Em produção, tokens sensíveis devem ficar em ambiente seguro/backend, não expostos ao frontend.
               </div>
+
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 cursor-pointer hover:border-teal-300 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={configMap['whatsapp_enabled'] === 'true'}
+                  onChange={e => setVal('whatsapp_enabled', e.target.checked ? 'true' : 'false')}
+                  className="mt-0.5 w-4 h-4 accent-teal-600"
+                />
+                <div>
+                  <p className="font-semibold text-slate-900 text-sm">Envio automático activo</p>
+                  <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                    Quando ligado, as mensagens de confirmação de preço, despacho, entrega e cancelamento são
+                    enviadas automaticamente pela Edge Function <code className="text-[11px] bg-slate-100 px-1 rounded">whatsapp-send</code> (Meta Cloud API).
+                    Quando desligado, o sistema continua a funcionar normalmente — gera sempre o link wa.me
+                    para o operador enviar manualmente.
+                  </p>
+                </div>
+              </label>
+
               <div className="flex items-start gap-3">
-                <div className={`w-3 h-3 rounded-full mt-1 shrink-0 ${configMap['whatsapp_api_url'] ? 'bg-teal-500' : 'bg-amber-400'}`} />
+                <div className={`w-3 h-3 rounded-full mt-1 shrink-0 ${configMap['whatsapp_enabled'] === 'true' ? 'bg-teal-500' : 'bg-amber-400'}`} />
                 <div>
                   <p className="font-semibold text-slate-900 text-sm">
-                    {configMap['whatsapp_api_url'] ? 'API configurada' : 'Modo manual (botões WhatsApp)'}
+                    {configMap['whatsapp_enabled'] === 'true' ? 'Envio automático ligado' : 'Modo manual (botões WhatsApp)'}
                   </p>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {configMap['whatsapp_api_url']
-                      ? 'Mensagens enviadas automaticamente via API.'
-                      : 'Sem URL de API definida. Os operadores usam botões WhatsApp para contactar clientes manualmente. O sistema funciona normalmente.'}
+                    {configMap['whatsapp_enabled'] === 'true'
+                      ? 'As mensagens dos templates abaixo são disparadas automaticamente nas etapas correspondentes.'
+                      : 'Os operadores usam o link WhatsApp para contactar clientes manualmente. Nenhuma mensagem é enviada sozinha.'}
                   </p>
                 </div>
               </div>
@@ -377,11 +415,13 @@ export function SystemConfigPage() {
               <h2 className="text-lg font-extrabold text-slate-900 mb-1">Templates de mensagens</h2>
               <p className="text-sm text-slate-500">
                 Personalize as mensagens enviadas em cada etapa do pedido.
-                As variáveis disponíveis são: <code className="text-xs bg-slate-100 px-1 rounded">{'{nome_cliente}'}</code>,{' '}
-                <code className="text-xs bg-slate-100 px-1 rounded">{'{medicamento}'}</code>,{' '}
-                <code className="text-xs bg-slate-100 px-1 rounded">{'{link_tracking}'}</code>,{' '}
-                <code className="text-xs bg-slate-100 px-1 rounded">{'{preco_total}'}</code>,{' '}
-                <code className="text-xs bg-slate-100 px-1 rounded">{'{motivo}'}</code>.
+                As variáveis disponíveis são: <code className="text-xs bg-slate-100 px-1 rounded">{'{{customer_name}}'}</code>,{' '}
+                <code className="text-xs bg-slate-100 px-1 rounded">{'{{medication_name}}'}</code>,{' '}
+                <code className="text-xs bg-slate-100 px-1 rounded">{'{{tracking_url}}'}</code>,{' '}
+                <code className="text-xs bg-slate-100 px-1 rounded">{'{{total_price}}'}</code>,{' '}
+                <code className="text-xs bg-slate-100 px-1 rounded">{'{{cancellation_reason}}'}</code>,{' '}
+                <code className="text-xs bg-slate-100 px-1 rounded">{'{{platform_name}}'}</code>.
+                Cada template só mostra as variáveis que faz sentido usar nesse passo.
               </p>
             </div>
 
@@ -451,6 +491,28 @@ export function SystemConfigPage() {
                   <p className="label-hint">{field.hint}</p>
                 </div>
               ))}
+
+              <label className={`flex items-start gap-3 rounded-xl border p-4 transition-colors ${
+                configMap['payment_gateway_provider']
+                  ? 'border-slate-200 cursor-pointer hover:border-teal-300'
+                  : 'border-slate-100 bg-slate-50 cursor-not-allowed opacity-60'
+              }`}>
+                <input
+                  type="checkbox"
+                  disabled={!configMap['payment_gateway_provider']}
+                  checked={configMap['payment_gateway_enabled'] === 'true'}
+                  onChange={e => setVal('payment_gateway_enabled', e.target.checked ? 'true' : 'false')}
+                  className="mt-0.5 w-4 h-4 accent-teal-600"
+                />
+                <div>
+                  <p className="font-semibold text-slate-900 text-sm">Gateway activo</p>
+                  <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                    Sem isto activo, o Merchant ID e Wallet ID acima ficam guardados mas o sistema continua a pedir
+                    confirmação manual de pagamento ao operador — preencher os campos sozinho não liga a cobrança automática.
+                    {!configMap['payment_gateway_provider'] && ' Seleccione um fornecedor acima para activar esta opção.'}
+                  </p>
+                </div>
+              </label>
 
               {!configMap['payment_gateway_provider'] && (
                 <div className="flex items-start gap-3 rounded-xl bg-slate-50 border border-slate-200 px-4 py-3">
