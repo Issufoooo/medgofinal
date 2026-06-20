@@ -20,27 +20,30 @@ let _cfg = null
 let _cfgAt = 0
 const CFG_TTL = 60_000
 
-async function getConfig() {
+export async function getConfig() {
   if (_cfg && Date.now() - _cfgAt < CFG_TTL) return _cfg
 
   const { data } = await supabase
     .from('system_config')
     .select('key, value')
     .in('key', [
-      'platform_name', 'platform_phone', 'whatsapp_number',
+      'operation_name', 'platform_name', 'platform_phone', 'whatsapp_number',
       'tracking_base_url', 'whatsapp_enabled',
-      'wa_tpl_price_confirmation', 'wa_tpl_order_dispatched',
+      'wa_tpl_order_created', 'wa_tpl_price_confirmation', 'wa_tpl_order_dispatched',
       'wa_tpl_order_delivered', 'wa_tpl_order_cancelled',
     ])
 
   const m = Object.fromEntries((data || []).map(r => [r.key, r.value]))
 
   _cfg = {
-    platformName:    m.platform_name    || 'MedGo',
+    // 'operation_name' é o campo real editado em Configurações → Parâmetros do sistema.
+    // 'platform_name' fica como alias de compatibilidade caso exista de versões antigas.
+    platformName:    m.operation_name   || m.platform_name || 'MedGo',
     platformPhone:   m.platform_phone   || m.whatsapp_number || '',
     trackingBaseUrl: m.tracking_base_url || (typeof window !== 'undefined' ? window.location.origin : ''),
     whatsappEnabled: m.whatsapp_enabled === 'true',
     templates: {
+      order_created:      m.wa_tpl_order_created      || '',
       price_confirmation: m.wa_tpl_price_confirmation || '',
       order_dispatched:   m.wa_tpl_order_dispatched   || '',
       order_delivered:    m.wa_tpl_order_delivered    || '',
@@ -54,23 +57,24 @@ async function getConfig() {
 export function invalidateNotificationCache() { _cfg = null }
 
 // ─── Interpolação de templates ─────────────────────────────────────────────
-function interpolate(tpl, vars) {
+export function interpolate(tpl, vars) {
   return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? '')
 }
 
-function buildVars({ order, customer, trackingUrl, config }) {
+function buildVars({ order, customer, trackingUrl, config, cancellationReason }) {
   const fmt = v => v != null
     ? new Intl.NumberFormat('pt-MZ', { minimumFractionDigits: 2 }).format(v) + ' MZN'
     : '—'
   return {
-    customer_name:    customer?.full_name || 'Cliente',
-    medication_name:  order?.medication_name_snapshot || '',
-    tracking_url:     trackingUrl || '',
-    medication_price: fmt(order?.medication_price),
-    delivery_fee:     fmt(order?.delivery_fee),
-    total_price:      fmt(order?.total_price),
-    platform_name:    config.platformName,
-    platform_phone:   config.platformPhone,
+    customer_name:       customer?.full_name || 'Cliente',
+    medication_name:     order?.medication_name_snapshot || '',
+    tracking_url:        trackingUrl || '',
+    medication_price:    fmt(order?.medication_price),
+    delivery_fee:        fmt(order?.delivery_fee),
+    total_price:         fmt(order?.total_price),
+    platform_name:       config.platformName,
+    platform_phone:      config.platformPhone,
+    cancellation_reason: cancellationReason || order?.cancellation_reason || 'Não especificado',
   }
 }
 
@@ -95,7 +99,7 @@ export function buildWaLink(phone, message) {
  * Sempre resolve — nunca lança excepção (falha silenciosa com log).
  * Retorna { sent, reason, waLink }.
  */
-export async function sendNotification(templateKey, { order, customer, trackingUrl }) {
+export async function sendNotification(templateKey, { order, customer, trackingUrl, cancellationReason }) {
   const result = { sent: false, reason: null, waLink: null }
 
   try {
@@ -106,7 +110,7 @@ export async function sendNotification(templateKey, { order, customer, trackingU
     const tpl = config.templates[templateKey]
     if (!tpl)  { result.reason = `unknown_template:${templateKey}`; return result }
 
-    const vars    = buildVars({ order, customer, trackingUrl, config })
+    const vars    = buildVars({ order, customer, trackingUrl, config, cancellationReason })
     const message = interpolate(tpl, vars)
 
     // Gerar link de fallback sempre (útil para o operador copiar)
