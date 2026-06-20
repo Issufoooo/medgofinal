@@ -10,6 +10,7 @@
 import { useSearchParams, Link } from 'react-router-dom'
 import { useQuery }             from '@tanstack/react-query'
 import { supabase }             from '../../lib/supabase'
+import { getConfig, interpolate } from '../../services/notificationService'
 
 function CheckIcon() {
   return (
@@ -50,29 +51,49 @@ export function ThankYouPage() {
   const token    = params.get('token')
   const medName  = params.get('med') || 'o seu medicamento'
 
-  // Buscar WhatsApp público e nome da plataforma do system_config
+  // Config partilhada (mesmas chaves/templates usados pelo notificationService
+  // do lado do operador — fonte única de verdade para mensagens WhatsApp).
   const { data: cfg } = useQuery({
     queryKey: ['public-config-thankyou'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('system_config')
-        .select('key, value')
-        .in('key', ['whatsapp_number', 'platform_name', 'operation_name'])
-      return Object.fromEntries((data || []).map(r => [r.key, r.value]))
-    },
+    queryFn: getConfig,
     staleTime: 5 * 60_000,
   })
 
-  const platformName = cfg?.operation_name || cfg?.platform_name || 'MedGo'
-  const rawWaNumber  = cfg?.whatsapp_number || import.meta.env.VITE_PUBLIC_WHATSAPP_NUMBER || DEFAULT_PUBLIC_WHATSAPP
-  const waNumber     = normalizePublicWhatsApp(rawWaNumber)
+  // Nome do cliente vem da própria reserva (RPC pública, só para complementar
+  // o template — não é obrigatório para a página funcionar).
+  const { data: orderInfo } = useQuery({
+    queryKey: ['thankyou-order', token],
+    queryFn: async () => {
+      const { data } = await supabase.rpc('get_order_by_token', { p_token: token })
+      return data?.[0] || null
+    },
+    enabled: !!token,
+    staleTime: 60_000,
+  })
 
-  // Mensagem inicial enviada pelo cliente para a WhatsApp API associar a conversa ao pedido.
-  // O CTA não pode desaparecer se a configuração ainda não tiver sido preenchida;
-  // por isso existe fallback para o número público da operação.
-  const waMessage = `Olá ${platformName}! Acabei de fazer um pedido de *${medName}*. ` +
-    (token ? `A referência do meu pedido é: ${token}. ` : '') +
-    `Quero continuar o atendimento por aqui.`
+  const platformName = cfg?.platformName || 'MedGo'
+  const rawWaNumber   = cfg?.platformPhone || import.meta.env.VITE_PUBLIC_WHATSAPP_NUMBER || DEFAULT_PUBLIC_WHATSAPP
+  const waNumber      = normalizePublicWhatsApp(rawWaNumber)
+
+  const trackingUrl = token && cfg?.trackingBaseUrl
+    ? `${cfg.trackingBaseUrl.replace(/\/$/, '')}/acompanhar/${token}`
+    : ''
+
+  // Mensagem inicial enviada pelo cliente — usa o template configurado em
+  // Configurações → Templates ("Pedido criado"). Se ainda não foi definido,
+  // cai num texto-base para a página nunca ficar sem CTA funcional.
+  const orderCreatedTemplate = cfg?.templates?.order_created
+  const waMessage = orderCreatedTemplate
+    ? interpolate(orderCreatedTemplate, {
+        customer_name:   orderInfo?.customer_name || '',
+        medication_name: medName,
+        tracking_url:    trackingUrl,
+        platform_name:   platformName,
+        platform_phone:  rawWaNumber,
+      })
+    : `Olá ${platformName}! Acabei de fazer um pedido de *${medName}*. ` +
+      (token ? `A referência do meu pedido é: ${token}. ` : '') +
+      `Quero continuar o atendimento por aqui.`
 
   const waLink = `https://wa.me/${waNumber}?text=${encodeURIComponent(waMessage)}`
 
