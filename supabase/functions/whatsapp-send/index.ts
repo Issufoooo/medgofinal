@@ -1,46 +1,78 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts"
-
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Max-Age": "86400",
-}
-
+  "Access-Control-Allow-Methods":
+    "POST, OPTIONS",
+};
 
 serve(async (req) => {
 
-
-  // CORS PREFLIGHT
+  // Resolver CORS primeiro
   if (req.method === "OPTIONS") {
-
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders,
-    })
-
+    return new Response(
+      null,
+      {
+        status: 204,
+        headers: corsHeaders,
+      }
+    );
   }
-
 
 
   try {
 
-    const body = await req.json()
+    if (req.method !== "POST") {
+      return new Response(
+        JSON.stringify({
+          error: "Only POST allowed"
+        }),
+        {
+          status: 405,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+
+    // Ler body com segurança
+    const text = await req.text();
+
+
+    if (!text) {
+      return new Response(
+        JSON.stringify({
+          error: "Empty request body"
+        }),
+        {
+          status: 400,
+          headers:{
+            ...corsHeaders,
+            "Content-Type":"application/json"
+          }
+        }
+      );
+    }
+
+
+    const body = JSON.parse(text);
 
 
     console.log(
-      "REQUEST BODY",
+      "INCOMING:",
       JSON.stringify(body)
-    )
+    );
 
 
     const {
       phone,
-      message,
-      templateKey
-    } = body
+      message
+    } = body;
 
 
 
@@ -57,26 +89,25 @@ serve(async (req) => {
             "Content-Type":"application/json"
           }
         }
-      )
-
+      );
     }
 
 
 
+    // ENV
     const token =
-      Deno.env.get("WHATSAPP_ACCESS_TOKEN")
-
+      Deno.env.get("WHATSAPP_TOKEN");
 
     const phoneId =
-      Deno.env.get("WHATSAPP_PHONE_NUMBER_ID")
+      Deno.env.get("WHATSAPP_PHONE_ID");
 
 
 
-    if (!token || !phoneId) {
+    if (!token || !phoneId){
 
       return new Response(
         JSON.stringify({
-          error:"Missing WhatsApp secrets"
+          error:"Missing WhatsApp env variables"
         }),
         {
           status:500,
@@ -85,87 +116,72 @@ serve(async (req) => {
             "Content-Type":"application/json"
           }
         }
-      )
+      );
 
     }
 
 
 
-    const metaResponse =
-      await fetch(
-        `https://graph.facebook.com/v21.0/${phoneId}/messages`,
-        {
-          method:"POST",
+    const response = await fetch(
+      `https://graph.facebook.com/v21.0/${phoneId}/messages`,
+      {
+        method:"POST",
+        headers:{
+          "Authorization":`Bearer ${token}`,
+          "Content-Type":"application/json"
+        },
 
-          headers:{
-            Authorization:`Bearer ${token}`,
-            "Content-Type":"application/json"
-          },
+        body:JSON.stringify({
 
+          messaging_product:"whatsapp",
 
-          body:JSON.stringify({
+          to:phone,
 
-            messaging_product:"whatsapp",
+          type:"text",
 
-            recipient_type:"individual",
+          text:{
+            body:message
+          }
 
-            to: phone.replace(/\D/g,''),
-
-            type:"text",
-
-            text:{
-              body:message
-            }
-
-          })
-        }
-      )
+        })
+      }
+    );
 
 
 
-
-    const metaData =
-      await metaResponse.json()
-
+    const result = await response.json();
 
 
     console.log(
-      "META RESPONSE",
-      JSON.stringify(metaData)
-    )
-
+      "WHATSAPP RESPONSE:",
+      JSON.stringify(result)
+    );
 
 
 
     return new Response(
-      JSON.stringify({
-        success:metaResponse.ok,
-        data:metaData,
-        templateKey
-      }),
+      JSON.stringify(result),
       {
-        status:metaResponse.ok ? 200 : 500,
+        status:response.status,
         headers:{
           ...corsHeaders,
           "Content-Type":"application/json"
         }
       }
-    )
+    );
 
 
+  } catch(error){
 
-  } catch(error) {
-
-
-    console.error(
-      "FUNCTION ERROR",
+    console.log(
+      "SEND ERROR:",
       error
-    )
+    );
 
 
     return new Response(
       JSON.stringify({
-        error:error.message
+        error:String(error)
       }),
       {
         status:500,
@@ -174,10 +190,9 @@ serve(async (req) => {
           "Content-Type":"application/json"
         }
       }
-    )
-
+    );
 
   }
 
 
-})
+});
