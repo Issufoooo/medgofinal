@@ -1,33 +1,39 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts"
 
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods":
-    "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 }
+
 
 serve(async (req) => {
 
-  // 🔥 CORREÇÃO PRINCIPAL
-  // OPTIONS nunca deve tentar ler JSON
+
+  // CORS PREFLIGHT
   if (req.method === "OPTIONS") {
-    return new Response(
-      "ok",
-      {
-        status: 200,
-        headers: corsHeaders
-      }
-    )
+
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    })
+
   }
+
 
 
   try {
 
     const body = await req.json()
 
-    console.log("INCOMING:", JSON.stringify(body))
+
+    console.log(
+      "REQUEST BODY",
+      JSON.stringify(body)
+    )
 
 
     const {
@@ -37,41 +43,40 @@ serve(async (req) => {
     } = body
 
 
+
     if (!phone || !message) {
 
       return new Response(
         JSON.stringify({
-          error: "Missing phone or message"
+          error:"Missing phone or message"
         }),
         {
-          status: 400,
-          headers: {
+          status:400,
+          headers:{
             ...corsHeaders,
-            "Content-Type": "application/json"
+            "Content-Type":"application/json"
           }
         }
       )
+
     }
 
 
-    const token = Deno.env.get(
-      "WHATSAPP_ACCESS_TOKEN"
-    )
 
-    const phoneNumberId = Deno.env.get(
-      "WHATSAPP_PHONE_NUMBER_ID"
-    )
+    const token =
+      Deno.env.get("WHATSAPP_ACCESS_TOKEN")
 
 
-    if (!token || !phoneNumberId) {
+    const phoneId =
+      Deno.env.get("WHATSAPP_PHONE_NUMBER_ID")
 
-      console.error(
-        "Missing WhatsApp secrets"
-      )
+
+
+    if (!token || !phoneId) {
 
       return new Response(
         JSON.stringify({
-          error:"WhatsApp secrets missing"
+          error:"Missing WhatsApp secrets"
         }),
         {
           status:500,
@@ -81,86 +86,65 @@ serve(async (req) => {
           }
         }
       )
+
     }
 
 
 
-    const response = await fetch(
-      `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
-      {
-        method:"POST",
-        headers:{
-          "Authorization":
-            `Bearer ${token}`,
-
-          "Content-Type":
-            "application/json"
-        },
-
-        body:JSON.stringify({
-
-          messaging_product:"whatsapp",
-
-          recipient_type:"individual",
-
-          to:phone.replace(/\D/g,""),
-
-          type:"text",
-
-          text:{
-            preview_url:true,
-            body:message
-          }
-
-        })
-      }
-    )
-
-
-
-    const result =
-      await response.json()
-
-
-
-    if (!response.ok) {
-
-      console.error(
-        "META ERROR:",
-        result
-      )
-
-      return new Response(
-        JSON.stringify({
-          success:false,
-          metaError:result
-        }),
+    const metaResponse =
+      await fetch(
+        `https://graph.facebook.com/v21.0/${phoneId}/messages`,
         {
-          status:500,
+          method:"POST",
+
           headers:{
-            ...corsHeaders,
+            Authorization:`Bearer ${token}`,
             "Content-Type":"application/json"
-          }
+          },
+
+
+          body:JSON.stringify({
+
+            messaging_product:"whatsapp",
+
+            recipient_type:"individual",
+
+            to: phone.replace(/\D/g,''),
+
+            type:"text",
+
+            text:{
+              body:message
+            }
+
+          })
         }
       )
-    }
+
+
+
+
+    const metaData =
+      await metaResponse.json()
 
 
 
     console.log(
-      "WHATSAPP SENT:",
-      result
+      "META RESPONSE",
+      JSON.stringify(metaData)
     )
+
+
 
 
     return new Response(
       JSON.stringify({
-        success:true,
-        data:result,
+        success:metaResponse.ok,
+        data:metaData,
         templateKey
       }),
       {
-        status:200,
+        status:metaResponse.ok ? 200 : 500,
         headers:{
           ...corsHeaders,
           "Content-Type":"application/json"
@@ -169,18 +153,19 @@ serve(async (req) => {
     )
 
 
-  } catch(err) {
+
+  } catch(error) {
 
 
     console.error(
-      "SEND ERROR:",
-      err
+      "FUNCTION ERROR",
+      error
     )
 
 
     return new Response(
       JSON.stringify({
-        error:String(err)
+        error:error.message
       }),
       {
         status:500,
@@ -191,6 +176,8 @@ serve(async (req) => {
       }
     )
 
+
   }
+
 
 })
