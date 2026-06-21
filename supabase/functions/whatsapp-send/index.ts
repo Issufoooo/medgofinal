@@ -1,92 +1,196 @@
-/**
- * MedGo — whatsapp-send Edge Function
- * Arquitectura: Frontend → esta função → Meta WhatsApp Cloud API
- *
- * Secrets necessários (Supabase Secrets, nunca no frontend):
- *   WHATSAPP_ACCESS_TOKEN    — Bearer token da Meta API
- *   WHATSAPP_PHONE_NUMBER_ID — ID do número registado
- *
- * Deploy: supabase functions deploy whatsapp-send
- */
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts"
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods":
+    "POST, OPTIONS",
+}
 
-const META_API_VERSION = 'v19.0'
+serve(async (req) => {
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin':  '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    })
+  // 🔥 CORREÇÃO PRINCIPAL
+  // OPTIONS nunca deve tentar ler JSON
+  if (req.method === "OPTIONS") {
+    return new Response(
+      "ok",
+      {
+        status: 200,
+        headers: corsHeaders
+      }
+    )
   }
+
 
   try {
-    const accessToken   = Deno.env.get('WHATSAPP_ACCESS_TOKEN')
-    const phoneNumberId = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID')
-
-    if (!accessToken || !phoneNumberId) {
-      return new Response(
-        JSON.stringify({ sent: false, reason: 'whatsapp_secrets_not_configured' }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
 
     const body = await req.json()
-    const { phone, message, templateKey } = body
+
+    console.log("INCOMING:", JSON.stringify(body))
+
+
+    const {
+      phone,
+      message,
+      templateKey
+    } = body
+
 
     if (!phone || !message) {
-      return new Response(
-        JSON.stringify({ error: 'phone and message are required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
 
-    // Normalizar número: remover + e espaços
-    const cleanPhone = phone.replace(/[\s\-\+()]/g, '')
-
-    // Enviar via Meta Cloud API
-    const metaUrl = `https://graph.facebook.com/${META_API_VERSION}/${phoneNumberId}/messages`
-
-    const metaRes = await fetch(metaUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to:    cleanPhone,
-        type:  'text',
-        text:  { body: message, preview_url: false },
-      }),
-    })
-
-    const metaData = await metaRes.json().catch(() => ({}))
-
-    if (!metaRes.ok) {
-      console.error('[whatsapp-send] Meta API error:', metaData)
       return new Response(
         JSON.stringify({
-          sent:   false,
-          reason: metaData?.error?.message || `HTTP ${metaRes.status}`,
+          error: "Missing phone or message"
         }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json"
+          }
+        }
       )
     }
 
-    return new Response(
-      JSON.stringify({ sent: true, messageId: metaData?.messages?.[0]?.id }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+
+    const token = Deno.env.get(
+      "WHATSAPP_ACCESS_TOKEN"
     )
 
-  } catch (err) {
-    console.error('[whatsapp-send] Fatal:', err)
-    return new Response(
-      JSON.stringify({ sent: false, reason: err.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    const phoneNumberId = Deno.env.get(
+      "WHATSAPP_PHONE_NUMBER_ID"
     )
+
+
+    if (!token || !phoneNumberId) {
+
+      console.error(
+        "Missing WhatsApp secrets"
+      )
+
+      return new Response(
+        JSON.stringify({
+          error:"WhatsApp secrets missing"
+        }),
+        {
+          status:500,
+          headers:{
+            ...corsHeaders,
+            "Content-Type":"application/json"
+          }
+        }
+      )
+    }
+
+
+
+    const response = await fetch(
+      `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+      {
+        method:"POST",
+        headers:{
+          "Authorization":
+            `Bearer ${token}`,
+
+          "Content-Type":
+            "application/json"
+        },
+
+        body:JSON.stringify({
+
+          messaging_product:"whatsapp",
+
+          recipient_type:"individual",
+
+          to:phone.replace(/\D/g,""),
+
+          type:"text",
+
+          text:{
+            preview_url:true,
+            body:message
+          }
+
+        })
+      }
+    )
+
+
+
+    const result =
+      await response.json()
+
+
+
+    if (!response.ok) {
+
+      console.error(
+        "META ERROR:",
+        result
+      )
+
+      return new Response(
+        JSON.stringify({
+          success:false,
+          metaError:result
+        }),
+        {
+          status:500,
+          headers:{
+            ...corsHeaders,
+            "Content-Type":"application/json"
+          }
+        }
+      )
+    }
+
+
+
+    console.log(
+      "WHATSAPP SENT:",
+      result
+    )
+
+
+    return new Response(
+      JSON.stringify({
+        success:true,
+        data:result,
+        templateKey
+      }),
+      {
+        status:200,
+        headers:{
+          ...corsHeaders,
+          "Content-Type":"application/json"
+        }
+      }
+    )
+
+
+  } catch(err) {
+
+
+    console.error(
+      "SEND ERROR:",
+      err
+    )
+
+
+    return new Response(
+      JSON.stringify({
+        error:String(err)
+      }),
+      {
+        status:500,
+        headers:{
+          ...corsHeaders,
+          "Content-Type":"application/json"
+        }
+      }
+    )
+
   }
+
 })
