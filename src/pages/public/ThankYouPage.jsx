@@ -1,25 +1,24 @@
 /**
- * ThankYouPage — Página de confirmação após criação do pedido.
+ * ThankYouPage — Confirmação após criação do pedido.
  *
- * Fluxo com WhatsApp API:
- *   O cliente inicia a primeira mensagem via wa.me com a referência do pedido.
- *   Quando a API/webhook estiver ligada, essa conversa fica associada ao pedido
- *   e o operador consegue continuar o atendimento pelo painel.
+ * A mensagem pré-preenchida no botão WhatsApp vem do template
+ * "Pedido criado" (wa_tpl_order_created) guardado em system_config.
+ * Se o dono ainda não configurou o template, usa o texto de fallback.
  */
 
 import { useSearchParams, Link } from 'react-router-dom'
-import { useQuery }             from '@tanstack/react-query'
-import { supabase }             from '../../lib/supabase'
+import { useQuery }              from '@tanstack/react-query'
+import { supabase }              from '../../lib/supabase'
 import { getConfig, interpolate } from '../../services/notificationService'
 
 function CheckIcon() {
   return (
     <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
-        strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"
+        strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
+        d="M5 13l4 4L19 7"
         style={{
-          strokeDasharray: 24,
-          strokeDashoffset: 24,
+          strokeDasharray: 28, strokeDashoffset: 28,
           animation: 'checkDraw 0.5s 0.35s cubic-bezier(.65,0,.35,1) forwards',
         }}
       />
@@ -35,32 +34,32 @@ function WhatsAppIcon() {
   )
 }
 
-
-const DEFAULT_PUBLIC_WHATSAPP = '258842017232'
-
-function normalizePublicWhatsApp(value) {
-  const digits = String(value || '').replace(/\D/g, '')
-  if (!digits) return DEFAULT_PUBLIC_WHATSAPP
-  if (digits.startsWith('258')) return digits
-  if (/^8[2-7]\d{7}$/.test(digits)) return `258${digits}`
-  return digits
+const DEFAULT_WA = '258842017232'
+function normalizeWa(v) {
+  const d = String(v || '').replace(/\D/g, '')
+  if (!d) return DEFAULT_WA
+  return d.startsWith('258') ? d : `258${d}`
 }
+
+const STEPS = [
+  { step: '1', title: 'Pedido registado',      desc: 'O pedido entrou na fila do operador para validação.', tone: 'teal' },
+  { step: '2', title: 'WhatsApp vinculado',    desc: 'Após a sua primeira mensagem, a conversa fica associada a este pedido.', tone: 'slate' },
+  { step: '3', title: 'Confirmação e entrega', desc: 'O operador confirma disponibilidade, preço e entrega pelo WhatsApp.', tone: 'slate' },
+]
 
 export function ThankYouPage() {
   const [params] = useSearchParams()
-  const token    = params.get('token')
-  const medName  = params.get('med') || 'o seu medicamento'
+  const token   = params.get('token')
+  const medName = params.get('med') || 'o seu medicamento'
 
-  // Config partilhada (mesmas chaves/templates usados pelo notificationService
-  // do lado do operador — fonte única de verdade para mensagens WhatsApp).
+  // Usa o getConfig partilhado — mesma cache e mesmos keys do notificationService
   const { data: cfg } = useQuery({
     queryKey: ['public-config-thankyou'],
     queryFn: getConfig,
     staleTime: 5 * 60_000,
   })
 
-  // Nome do cliente vem da própria reserva (RPC pública, só para complementar
-  // o template — não é obrigatório para a página funcionar).
+  // Dados do pedido para complementar o template (nome do cliente)
   const { data: orderInfo } = useQuery({
     queryKey: ['thankyou-order', token],
     queryFn: async () => {
@@ -72,28 +71,25 @@ export function ThankYouPage() {
   })
 
   const platformName = cfg?.platformName || 'MedGo'
-  const rawWaNumber   = cfg?.platformPhone || import.meta.env.VITE_PUBLIC_WHATSAPP_NUMBER || DEFAULT_PUBLIC_WHATSAPP
-  const waNumber      = normalizePublicWhatsApp(rawWaNumber)
-
-  const trackingUrl = token && cfg?.trackingBaseUrl
+  const waNumber     = normalizeWa(cfg?.platformPhone)
+  const trackingUrl  = token && cfg?.trackingBaseUrl
     ? `${cfg.trackingBaseUrl.replace(/\/$/, '')}/acompanhar/${token}`
     : ''
 
-  // Mensagem inicial enviada pelo cliente — usa o template configurado em
-  // Configurações → Templates ("Pedido criado"). Se ainda não foi definido,
-  // cai num texto-base para a página nunca ficar sem CTA funcional.
-  const orderCreatedTemplate = cfg?.templates?.order_created
-  const waMessage = orderCreatedTemplate
-    ? interpolate(orderCreatedTemplate, {
+  // Template "Pedido criado" da página de configurações
+  // Se não existir, usa o fallback genérico
+  const tpl = cfg?.templates?.order_created
+  const waMessage = tpl
+    ? interpolate(tpl, {
         customer_name:   orderInfo?.customer_name || '',
         medication_name: medName,
         tracking_url:    trackingUrl,
         platform_name:   platformName,
-        platform_phone:  rawWaNumber,
+        platform_phone:  cfg?.platformPhone || '',
       })
-    : `Olá ${platformName}! Acabei de fazer um pedido de *${medName}*. ` +
-      (token ? `A referência do meu pedido é: ${token}. ` : '') +
-      `Quero continuar o atendimento por aqui.`
+    : `Olá ${platformName}! Acabei de fazer um pedido de *${medName}*.` +
+      (token ? ` Referência: ${token}.` : '') +
+      ` Quero continuar o atendimento por aqui.`
 
   const waLink = `https://wa.me/${waNumber}?text=${encodeURIComponent(waMessage)}`
 
@@ -104,14 +100,14 @@ export function ThankYouPage() {
         {/* Hero */}
         <div className="text-center space-y-4 animate-fade-up">
           <div className="relative w-20 h-20 mx-auto">
-            <span className="absolute inset-0 rounded-3xl bg-teal-400 animate-ping" style={{ animationDuration: '1.8s', animationIterationCount: 2, opacity: 0.35 }} />
-            <div className="relative w-20 h-20 rounded-3xl bg-teal-500 flex items-center justify-center mx-auto shadow-lg shadow-teal-200 animate-scale-in">
+            <span className="absolute inset-0 rounded-3xl bg-teal-400 animate-ping opacity-30" style={{ animationDuration:'1.8s', animationIterationCount:2 }} />
+            <div className="relative w-20 h-20 rounded-3xl bg-teal-500 flex items-center justify-center shadow-lg shadow-teal-200">
               <CheckIcon />
             </div>
           </div>
           <div>
             <h1 className="text-2xl font-extrabold text-slate-900">Pedido recebido!</h1>
-            <p className="text-slate-500 mt-2 leading-relaxed">
+            <p className="text-slate-500 mt-2 leading-relaxed text-sm">
               O seu pedido de <strong>{medName}</strong> foi criado com sucesso.
               A equipa da {platformName} vai validar a disponibilidade e entrar em contacto.
             </p>
@@ -124,58 +120,39 @@ export function ThankYouPage() {
           )}
         </div>
 
-        {/* CTA WhatsApp — primeira mensagem do cliente */}
-        <div className="card p-5 space-y-4 border-2 border-green-200 bg-[linear-gradient(180deg,#f0fdf4_0%,#ffffff_100%)] animate-fade-up" style={{ animationDelay: '120ms', animationFillMode: 'backwards' }}>
-            <div>
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-green-600">Próximo passo obrigatório</p>
-              <h2 className="mt-1 text-lg font-extrabold text-slate-950">Envie a primeira mensagem no WhatsApp</h2>
-              <p className="mt-1 text-sm text-slate-600 leading-relaxed">
-                Toque no botão abaixo e envie a mensagem pré-preenchida. A conversa fica ligada a este pedido para o operador continuar o atendimento pela API.
-              </p>
-            </div>
-            <a
-              href={waLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="wa-btn w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] text-white font-extrabold py-4 px-4 shadow-lg shadow-green-200/70"
-            >
-              <span className="wa-btn-icon"><WhatsAppIcon /></span>
-              Abrir WhatsApp e enviar mensagem
-            </a>
-            <div className="rounded-2xl border border-green-200 bg-white/80 px-4 py-3">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Mensagem preparada</p>
-              <p className="mt-1 text-sm text-slate-700 leading-relaxed">{waMessage}</p>
-            </div>
+        {/* CTA WhatsApp */}
+        <div className="card p-5 space-y-4 border-2 border-green-200 bg-[linear-gradient(180deg,#f0fdf4,#ffffff)] animate-fade-up" style={{ animationDelay:'100ms', animationFillMode:'backwards' }}>
+          <div>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-green-600">Próximo passo obrigatório</p>
+            <h2 className="mt-1 text-lg font-extrabold text-slate-950">Envie a primeira mensagem no WhatsApp</h2>
+            <p className="mt-1 text-sm text-slate-600 leading-relaxed">
+              Toque no botão abaixo e envie a mensagem pré-preenchida. A conversa fica ligada a este pedido para a equipa continuar o atendimento.
+            </p>
+          </div>
+          <a
+            href={waLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="wa-btn w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] text-white font-extrabold py-4 px-4 shadow-lg shadow-green-200/70"
+          >
+            <span className="wa-btn-icon"><WhatsAppIcon /></span>
+            Abrir WhatsApp e enviar mensagem
+          </a>
+          <div className="rounded-2xl border border-green-200 bg-white/80 px-4 py-3">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Mensagem preparada</p>
+            <p className="mt-1 text-sm text-slate-700 leading-relaxed whitespace-pre-line">{waMessage}</p>
+          </div>
         </div>
 
         {/* Próximos passos */}
-        <div className="card p-5 space-y-3 animate-fade-up" style={{ animationDelay: '220ms', animationFillMode: 'backwards' }}>
+        <div className="card p-5 space-y-3 animate-fade-up" style={{ animationDelay:'200ms', animationFillMode:'backwards' }}>
           <h2 className="font-extrabold text-slate-900 text-sm uppercase tracking-wider">O que acontece agora?</h2>
           <div className="space-y-3">
-            {[
-              {
-                step: '1',
-                title: 'Pedido registado',
-                desc:  'O pedido já entrou na fila do operador para validação.',
-                tone:  'teal',
-              },
-              {
-                step: '2',
-                title: 'WhatsApp vinculado',
-                desc:  'Depois da sua primeira mensagem, a conversa fica associada à referência do pedido.',
-                tone:  'slate',
-              },
-              {
-                step: '3',
-                title: 'Confirmação e entrega',
-                desc:  'O operador confirma disponibilidade, preço e avanço da entrega pelo WhatsApp.',
-                tone:  'slate',
-              },
-            ].map((s, i) => (
+            {STEPS.map((s, i) => (
               <div
                 key={s.step}
-                className={`flex gap-3 p-3 rounded-xl border transition-colors animate-fade-up ${s.tone === 'teal' ? 'bg-teal-50 border-teal-200' : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}
-                style={{ animationDelay: `${300 + i * 90}ms`, animationFillMode: 'backwards' }}
+                className={`flex gap-3 p-3 rounded-xl border ${s.tone === 'teal' ? 'bg-teal-50 border-teal-200' : 'bg-slate-50 border-slate-100'}`}
+                style={{ animation:'fadeUpIn .35s cubic-bezier(.16,1,.3,1) backwards', animationDelay:`${300 + i*90}ms` }}
               >
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${s.tone === 'teal' ? 'bg-teal-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
                   {s.step}
@@ -189,12 +166,20 @@ export function ThankYouPage() {
           </div>
         </div>
 
-        {/* Links */}
-        <div className="flex flex-col gap-3 animate-fade-up" style={{ animationDelay: '600ms', animationFillMode: 'backwards' }}>
+        {/* Footer */}
+        <div className="flex flex-col gap-3 animate-fade-up" style={{ animationDelay:'580ms', animationFillMode:'backwards' }}>
           <p className="text-center text-xs text-slate-400 leading-relaxed px-4">
-            As próximas actualizações, confirmação de preço e acompanhamento serão enviados no WhatsApp ligado a este pedido.
+            Confirmação de preço, acompanhamento e próximos passos chegam pelo WhatsApp ligado a este pedido.
           </p>
-          <Link to="/" className="btn-secondary text-center transition-transform hover:-translate-y-0.5">
+          {token && (
+            <Link
+              to={`/acompanhar/${token}`}
+              className="btn-secondary text-center hover:-translate-y-0.5 transition-transform"
+            >
+              Acompanhar pedido
+            </Link>
+          )}
+          <Link to="/" className="btn-ghost text-center text-slate-400">
             Voltar ao início
           </Link>
         </div>

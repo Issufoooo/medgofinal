@@ -1,4 +1,5 @@
 import { useParams, Link } from 'react-router-dom'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { TrackingTimeline } from '../../components/public/TrackingTimeline'
@@ -39,6 +40,107 @@ function StatusPill({ status }) {
     <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${tones[status] || 'bg-slate-50 text-slate-700 border-slate-200'}`}>
       {STATUS_LABELS[status] || status}
     </span>
+  )
+}
+
+// ── Confirmation block ─────────────────────────────────────────────────────
+function ConfirmOrderBlock({ token, order, waUrl }) {
+  const [confirming, setConfirming] = useState(false)
+  const [done, setDone]             = useState(false)
+  const [err, setErr]               = useState(null)
+
+  const handleConfirm = async () => {
+    setConfirming(true)
+    setErr(null)
+    try {
+      const { data, error } = await supabase.rpc('public_confirm_order', { p_token: token })
+      if (error) throw error
+      if (!data?.confirmed) {
+        const msgs = {
+          wrong_status: 'Este pedido já foi processado — não precisa de nova confirmação.',
+          not_found:    'Pedido não encontrado. Verifique o link.',
+        }
+        throw new Error(msgs[data?.reason] || 'Não foi possível confirmar agora. Tente via WhatsApp.')
+      }
+      setDone(true)
+      setTimeout(() => window.location.reload(), 2000)
+    } catch (e) {
+      setErr(e.message)
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  if (done) {
+    return (
+      <div className="rounded-2xl border-2 border-teal-300 bg-teal-50 p-5 mb-4 text-center">
+        <p className="text-base font-extrabold text-teal-700 mb-1">✅ Pedido confirmado!</p>
+        <p className="text-sm text-teal-600">A equipa foi notificada e vai avançar com a preparação.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-2xl border-2 border-orange-300 bg-orange-50 p-5 mb-4 space-y-4">
+      <div className="flex items-start gap-2.5">
+        <span className="mt-1.5 h-2 w-2 rounded-full bg-orange-500 shrink-0" />
+        <div>
+          <p className="text-sm font-extrabold text-orange-900">Aguardamos a sua confirmação</p>
+          <p className="text-xs text-orange-700 leading-relaxed mt-0.5">
+            A equipa preparou o preço final. Confirme para avançar com a entrega.
+          </p>
+        </div>
+      </div>
+
+      {/* Resumo de preços */}
+      {order.total_price && (
+        <div className="rounded-xl border border-orange-200 bg-white px-4 py-3 space-y-1.5">
+          {order.medication_price && (
+            <div className="flex justify-between text-sm text-slate-600">
+              <span>Medicamento</span>
+              <span className="font-semibold">{fmt(order.medication_price)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm text-slate-600">
+            <span>Entrega</span>
+            <span className="font-semibold">{fmt(order.delivery_fee)}</span>
+          </div>
+          <div className="flex justify-between text-base font-extrabold text-slate-950 border-t border-orange-100 pt-1.5 mt-0.5">
+            <span>Total a pagar</span>
+            <span className="text-orange-700">{fmt(order.total_price)}</span>
+          </div>
+        </div>
+      )}
+
+      {err && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 font-medium">
+          {err}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2.5">
+        <button
+          onClick={handleConfirm}
+          disabled={confirming}
+          className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-teal-600 px-5 py-3.5 text-white text-sm font-extrabold transition-all hover:bg-teal-700 disabled:opacity-60 disabled:pointer-events-none shadow-card"
+        >
+          {confirming ? <><Spinner size="sm" /> A confirmar...</> : '✓ Confirmar pedido'}
+        </button>
+        {waUrl && (
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-green-300 bg-white px-5 py-3 text-green-700 text-sm font-semibold hover:bg-green-50 transition-colors"
+          >
+            <WhatsAppIcon /> Confirmar via WhatsApp
+          </a>
+        )}
+      </div>
+      <p className="text-[11px] text-center text-orange-600 leading-relaxed">
+        Ao confirmar aceita o preço acima. Em caso de dúvida, fale connosco primeiro.
+      </p>
+    </div>
   )
 }
 
@@ -211,17 +313,7 @@ export function TrackingPage() {
 
         {/* Price confirmation CTA */}
         {order.status === 'AWAITING_CLIENT' && (
-          <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 mb-4">
-            <p className="text-sm font-bold text-orange-800 mb-2">Aguardamos a sua confirmação</p>
-            <p className="text-sm text-orange-700 leading-relaxed mb-4">
-              O preço final foi preparado pela equipa. Fale connosco no WhatsApp para confirmar e avançar com a entrega.
-            </p>
-            {waUrl && (
-              <a href={waUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-2.5 text-white text-sm font-semibold hover:bg-orange-600 transition-colors">
-                <WhatsAppIcon /> Confirmar via WhatsApp
-              </a>
-            )}
-          </div>
+          <ConfirmOrderBlock token={token} order={order} waUrl={waUrl} />
         )}
 
         {/* Delivered summary */}
