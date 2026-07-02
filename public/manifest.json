@@ -1,0 +1,27 @@
+{
+  "name": "MedGo — Medicamentos ao domicílio",
+  "short_name": "MedGo",
+  "description": "Encomende medicamentos com entrega em Maputo e Matola. Confirmação antes de qualquer cobrança.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#14b8a6",
+  "lang": "pt",
+  "categories": ["medical", "health", "shopping"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ver medicamentos",
+      "short_name": "Catálogo",
+      "description": "Pesquisar e pedir medicamentos",
+      "url": "/medicamentos",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": []
+}
