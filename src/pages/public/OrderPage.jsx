@@ -67,7 +67,6 @@ export function OrderPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [pricingConfig, setPricingConfig] = useState({ markupPercent: 0, codFeePercent: 0 })
-  // Anti-spam: honeypot (bots fill it, humans do not) + rate limit
   const [honeypot, setHoneypot] = useState('')
   const lastSubmitRef = useRef(0)
   const SUBMIT_COOLDOWN_MS = 8000
@@ -115,9 +114,7 @@ export function OrderPage() {
 
   const handleSubmit = async (evt) => {
     evt.preventDefault()
-    // Honeypot: bots fill the hidden field, humans leave it empty
     if (honeypot) return
-    // Rate limit: prevent double-submit or rapid resubmission
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
     const now = Date.now()
@@ -162,38 +159,34 @@ export function OrderPage() {
         .single()
 
       if (createOrderErr) {
-        throw new Error('Erro ao criar pedido: ' + createOrderErr.message)
+        // Não expor mensagens técnicas internas ao cliente
+        throw new Error('Não foi possível registar o seu pedido. Por favor verifique os dados e tente novamente.')
       }
 
       const order = createdOrder
 
-      // Upload receita — se falhar, a RPC de upload cancela/actualiza o pedido com segurança.
       if (prescriptionFile && needsRx) {
         try {
           await uploadPublicPrescription(order.id, prescriptionFile)
-        } catch (uploadErr) {
+        } catch {
           await supabase.rpc('public_cancel_order_after_prescription_failure', {
             p_order_id: order.id,
-            p_reason: 'Falha no upload da receita — pedido cancelado automaticamente.',
+            p_reason: 'Falha no upload da receita.',
           }).catch(() => null)
           throw new Error(
-            'Não foi possível enviar a receita médica. O pedido foi cancelado. ' +
-            'Por favor tente novamente. (' + (uploadErr?.message || 'erro de upload') + ')'
+            'Não foi possível enviar o documento. Verifique o ficheiro (JPG, PNG ou PDF, máx. 5 MB) e tente novamente.'
           )
         }
       }
 
       await auditLog({ action: 'ORDER_CREATED', entityType: 'order', entityId: order.id, metadata: { medicationId, zoneId: mapLocation.zone?.id, distanceKm: mapLocation.distanceKm, needsRx } })
-      // Não enviamos WhatsApp automático aqui.
-      // Estratégia oficial: o cliente inicia a conversa primeiro na ThankYouPage,
-      // reduzindo custo e evitando enviar tracking/pagamento antes da confirmação operacional.
       await finishShipmentAnimation()
       navigate('/obrigado?token=' + order.tracking_token + '&med=' + encodeURIComponent(medication.commercial_name || medication.generic_name || 'o seu medicamento'))
     } catch (err) {
       await finishShipmentAnimation()
       const message = err?.message || 'Ocorreu um erro ao enviar o pedido. Por favor tente novamente.'
       const friendlyMessage = /row-level security|violates row-level|permission denied|policy/i.test(message)
-        ? 'Não foi possível registar o pedido por causa das permissões da base de dados. Aplica o patch SQL de produção e tenta novamente.'
+        ? 'Ocorreu um problema ao registar o pedido. Por favor tente novamente ou contacte o suporte.'
         : message
       setSubmitError(friendlyMessage)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -250,7 +243,7 @@ export function OrderPage() {
 
         {submitError && <Alert type="error" className="mb-6">{submitError}</Alert>}
         <form onSubmit={handleSubmit} noValidate className="space-y-8">
-          {/* Honeypot — hidden from humans, bots fill it automatically */}
+          {/* Anti-spam — not visible to users */}
           <div aria-hidden="true" style={{ display: 'none', visibility: 'hidden', position: 'absolute', left: '-9999px' }}>
             <label htmlFor="phone_confirm">Confirmar telefone (não preencher)</label>
             <input id="phone_confirm" name="phone_confirm" type="text" tabIndex={-1} autoComplete="off" value={honeypot} onChange={e => setHoneypot(e.target.value)} />
