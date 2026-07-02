@@ -49,9 +49,9 @@ export const REQUIRES_OWNER_APPROVAL = [
   'CONFIRMED', 'IN_PREPARATION',
 ]
 
-// States where customer can self-cancel
+// States where customer can self-cancel (up to pharmacy confirmation)
 export const CUSTOMER_CANCELLABLE_STATES = [
-  'NEW', 'PRESCRIPTION_PENDING',
+  'NEW', 'PRESCRIPTION_PENDING', 'IN_VALIDATION', 'AWAITING_PHARMACY',
 ]
 
 // States where operator can directly action
