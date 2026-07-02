@@ -55,7 +55,6 @@ export function ComoFuncionaModal({ open, onClose }) {
       <div className="modal-backdrop" onClick={onClose} />
 
       <div className="modal-panel" style={{ maxWidth: 560 }}>
-        {/* Decorative top gradient strip */}
         <div className="relative h-24 overflow-hidden bg-[linear-gradient(120deg,#0f766e_0%,#14b8a6_45%,#042f2e_100%)]">
           <div className="absolute inset-0 opacity-50" style={{
             backgroundImage: 'radial-gradient(circle at 20% 30%, rgba(255,255,255,0.35), transparent 40%), radial-gradient(circle at 80% 70%, rgba(249,115,22,0.35), transparent 36%)'
