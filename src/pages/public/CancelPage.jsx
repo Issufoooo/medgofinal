@@ -44,7 +44,7 @@ export function CancelPage() {
         .select('id, status, customer:customers(full_name, whatsapp_number)')
         .eq('tracking_token', token).single()
 
-      if (!fullOrder) throw new Error('Pedido não encontrado.')
+      if (!fullOrder) throw new Error('Não foi possível encontrar o pedido. Verifique o link e tente novamente.')
       if (!CUSTOMER_CANCELLABLE_STATES.includes(fullOrder.status)) {
         setError('Este pedido já não pode ser cancelado — está em processamento.')
         return
@@ -57,7 +57,7 @@ export function CancelPage() {
       await sendNotification('order_cancelled', { order:{ ...fullOrder, cancellation_reason: reason }, customer: fullOrder.customer })
       navigate(`/acompanhar/${token}`)
     } catch (err) {
-      setError(err.message || 'Não foi possível cancelar o pedido. Tente novamente.')
+      setError('Não foi possível cancelar o pedido. Tente novamente ou contacte o suporte via WhatsApp.')
     } finally { setCancelling(false) }
   }
 

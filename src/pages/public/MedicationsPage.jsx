@@ -195,7 +195,7 @@ export function MedicationsPage() {
               onClick={() => handleCat(c.value)}
               className={`px-4 py-2.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-150 shrink-0 border ${
                 cat === c.value
-                  ? 'bg-navy-950 text-white border-navy-950'
+                  ? 'bg-teal-700 text-white border-teal-700'
                   : 'bg-white text-slate-600 border-slate-200 hover:border-teal-200 hover:text-teal-700'
               }`}
             >

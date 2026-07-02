@@ -17,7 +17,7 @@ const fmtDate = (iso) =>
 
 const STATUS_LABELS = {
   NEW:'Pedido recebido', PRESCRIPTION_PENDING:'A aguardar receita',
-  IN_VALIDATION:'Em validação', AWAITING_PHARMACY:'A confirmar disponibilidade',
+  IN_VALIDATION:'Em análise', AWAITING_PHARMACY:'A confirmar com a farmácia',
   AWAITING_CLIENT:'A aguardar a sua confirmação', CONFIRMED:'Confirmado',
   IN_PREPARATION:'Em preparação', IN_DELIVERY:'Em entrega',
   DELIVERED:'Entregue', CANCELLED:'Cancelado',
@@ -65,7 +65,7 @@ function ConfirmOrderBlock({ token, order, waUrl }) {
       setDone(true)
       setTimeout(() => window.location.reload(), 2000)
     } catch (e) {
-      setErr(e.message)
+      setErr(e.message?.includes('not_found') ? 'Pedido não encontrado. Verifique o link.' : e.message || 'Ocorreu um erro. Tente novamente.')
     } finally {
       setConfirming(false)
     }
@@ -155,7 +155,7 @@ export function TrackingPage() {
       const { data, error } = await supabase.rpc('get_order_by_token', { p_token: token })
       if (error) throw error
       const row = Array.isArray(data) ? data[0] : data
-      if (!row) throw new Error('not_found')
+      if (!row) throw new Error('Pedido não encontrado.')
       return row
     },
     refetchInterval: 30000,
