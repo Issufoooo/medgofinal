@@ -263,6 +263,11 @@ function ConfirmPriceForm({ order, onSuccess }) {
 
     setLoading(true)
     try {
+      // AVISO: Este bloco actualiza o status directamente via supabase.update()
+      // e NÃO passa por updateOrderStatus() intencionalmente.
+      // updateOrderStatus() também dispara price_confirmation para AWAITING_CLIENT.
+      // Se mudar para updateOrderStatus(), remover o sendNotification() abaixo
+      // para evitar duplicação — o cliente receberia a mensagem duas vezes.
       const { error } = await supabase.from('orders').update({
         pharmacy_id:             selectedPharmacy.pharmacy_id,
         pharmacy_price:          pricing.pharmacyPrice,
