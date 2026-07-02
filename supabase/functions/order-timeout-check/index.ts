@@ -5,7 +5,7 @@
  * Respeita horário de funcionamento definido em system_config.
  *
  * Deploy:  supabase functions deploy order-timeout-check
- * Cron:    */15 * * * *  (cada 15 minutos)
+ // Cron:    */15 * * * *  (cada 15 minutos)
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
