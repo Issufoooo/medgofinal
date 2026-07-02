@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient }      from './lib/queryClient'
 import { PublicLayout }     from './layouts/PublicLayout'
@@ -54,6 +54,13 @@ function S({ children }) {
   )
 }
 
+// Scroll to top on every route change
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }) }, [pathname])
+  return null
+}
+
 export function App() {
   const init = useAuthStore(s => s.init)
   useEffect(() => { init() }, [init])
@@ -61,6 +68,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ScrollToTop />
         {/* Offline / connectivity banner */}
         <NetworkStatus />
 
