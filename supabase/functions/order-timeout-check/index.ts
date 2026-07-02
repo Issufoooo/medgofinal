@@ -4,8 +4,7 @@
  * Libera stock APENAS se existiu reserva prévia (função DB verifica).
  * Respeita horário de funcionamento definido em system_config.
  *
- * Deploy:  supabase functions deploy order-timeout-check
- * Cron:    */15 * * * * (cada 15 minutos)
+ * Deploy: supabase functions deploy order-timeout-check
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
