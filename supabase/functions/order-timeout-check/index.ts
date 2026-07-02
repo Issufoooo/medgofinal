@@ -5,7 +5,7 @@
  * Respeita horário de funcionamento definido em system_config.
  *
  * Deploy:  supabase functions deploy order-timeout-check
- // Cron:    */15 * * * *  (cada 15 minutos)
+ * Cron:    */15 * * * * (cada 15 minutos)
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
           notes:       reason,
         })
 
-        // Liberar stock APENAS se houve reserva — função DB verifica e impede duplicação
+        // Liberar stock APENAS se houve reserva
         if (order.medication_id && order.pharmacy_id) {
           await supabase.rpc('release_stock_for_order', {
             p_medication_id: order.medication_id,
@@ -99,8 +99,6 @@ Deno.serve(async (req) => {
             p_order_id:      order.id,
             p_actor_id:      null,
           })
-          // Se não havia reserva, a função retorna { released: false, reason: 'no_prior_reserve' }
-          // Não é erro — significa que o stock não estava reservado para este pedido
         }
 
         await supabase.from('action_logs').insert({
