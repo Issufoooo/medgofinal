@@ -1,31 +1,19 @@
-/**
- * ThankYouPage — Confirmação após criação do pedido.
- *
- * A mensagem pré-preenchida no botão WhatsApp vem do template
- * "Pedido criado" (wa_tpl_order_created) guardado em system_config.
- * Se o dono ainda não configurou o template, usa o texto de fallback.
- */
+import { useEffect }               from 'react'
+import { useSearchParams, Link }   from 'react-router-dom'
+import { useQuery }                from '@tanstack/react-query'
+import { supabase }                from '../../lib/supabase'
+import { getConfig, interpolate }  from '../../services/notificationService'
 
-import { useSearchParams, Link } from 'react-router-dom'
-import { useQuery }              from '@tanstack/react-query'
-import { supabase }              from '../../lib/supabase'
-import { getConfig, interpolate } from '../../services/notificationService'
-
+/* ── Icons ────────────────────────────────────────────────────── */
 function CheckIcon() {
   return (
     <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
-        d="M5 13l4 4L19 7"
-        style={{
-          strokeDasharray: 28, strokeDashoffset: 28,
-          animation: 'checkDraw 0.5s 0.35s cubic-bezier(.65,0,.35,1) forwards',
-        }}
-      />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"
+        style={{ strokeDasharray: 28, strokeDashoffset: 28,
+          animation: 'checkDraw 0.5s 0.35s cubic-bezier(.65,0,.35,1) forwards' }} />
     </svg>
   )
 }
-
 function WhatsAppIcon() {
   return (
     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -33,7 +21,15 @@ function WhatsAppIcon() {
     </svg>
   )
 }
+function ArrowRight() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+    </svg>
+  )
+}
 
+/* ── Helpers ──────────────────────────────────────────────────── */
 const DEFAULT_WA = '258842017232'
 function normalizeWa(v) {
   const d = String(v || '').replace(/\D/g, '')
@@ -42,31 +38,33 @@ function normalizeWa(v) {
 }
 
 const STEPS = [
-  { step: '1', title: 'Pedido registado',      desc: 'O pedido entrou na fila do operador para validação.', tone: 'teal' },
-  { step: '2', title: 'WhatsApp vinculado',    desc: 'Após a sua primeira mensagem, a conversa fica associada a este pedido.', tone: 'slate' },
-  { step: '3', title: 'Confirmação e entrega', desc: 'O operador confirma disponibilidade, preço e entrega pelo WhatsApp.', tone: 'slate' },
+  { n: '1', title: 'Pedido registado',      desc: 'O pedido entrou na fila do operador para validação.',                                   tone: 'teal'  },
+  { n: '2', title: 'WhatsApp vinculado',    desc: 'Após a sua primeira mensagem, a conversa fica associada a este pedido.',               tone: 'slate' },
+  { n: '3', title: 'Confirmação e entrega', desc: 'O operador confirma disponibilidade, preço e próximos passos pelo WhatsApp.',          tone: 'slate' },
 ]
 
+/* ── Page ─────────────────────────────────────────────────────── */
 export function ThankYouPage() {
   const [params] = useSearchParams()
   const token   = params.get('token')
   const medName = params.get('med') || 'o seu medicamento'
 
-  // Usa o getConfig partilhado — mesma cache e mesmos keys do notificationService
+  // Scroll ao topo imediatamente ao montar
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }) }, [])
+
   const { data: cfg } = useQuery({
     queryKey: ['public-config-thankyou'],
-    queryFn: getConfig,
+    queryFn:  getConfig,
     staleTime: 5 * 60_000,
   })
 
-  // Dados do pedido para complementar o template (nome do cliente)
   const { data: orderInfo } = useQuery({
     queryKey: ['thankyou-order', token],
     queryFn: async () => {
       const { data } = await supabase.rpc('get_order_by_token', { p_token: token })
       return data?.[0] || null
     },
-    enabled: !!token,
+    enabled:  !!token,
     staleTime: 60_000,
   })
 
@@ -76,8 +74,6 @@ export function ThankYouPage() {
     ? `${cfg.trackingBaseUrl.replace(/\/$/, '')}/acompanhar/${token}`
     : ''
 
-  // Template "Pedido criado" da página de configurações
-  // Se não existir, usa o fallback genérico
   const tpl = cfg?.templates?.order_created
   const waMessage = tpl
     ? interpolate(tpl, {
@@ -94,69 +90,101 @@ export function ThankYouPage() {
   const waLink = `https://wa.me/${waNumber}?text=${encodeURIComponent(waMessage)}`
 
   return (
-    <div className="min-h-svh bg-gradient-to-b from-teal-50 to-white px-4 py-12">
-      <div className="max-w-lg mx-auto space-y-6">
+    <div className="min-h-svh bg-gradient-to-b from-teal-50 via-white to-white px-4 pt-8 pb-14">
+      <div className="max-w-md mx-auto space-y-5">
 
-        {/* Hero */}
-        <div className="text-center space-y-4 animate-fade-up">
+        {/* ── Hero ───────────────────────────────────────────── */}
+        <div className="text-center space-y-3 animate-fade-up">
           <div className="relative w-20 h-20 mx-auto">
-            <span className="absolute inset-0 rounded-3xl bg-teal-400 animate-ping opacity-30" style={{ animationDuration:'1.8s', animationIterationCount:2 }} />
+            <span className="absolute inset-0 rounded-3xl bg-teal-400 opacity-25 animate-ping"
+              style={{ animationDuration: '1.8s', animationIterationCount: 2 }} />
             <div className="relative w-20 h-20 rounded-3xl bg-teal-500 flex items-center justify-center shadow-lg shadow-teal-200">
               <CheckIcon />
             </div>
           </div>
           <div>
             <h1 className="text-2xl font-extrabold text-slate-900">Pedido recebido!</h1>
-            <p className="text-slate-500 mt-2 leading-relaxed text-sm">
-              O seu pedido de <strong>{medName}</strong> foi criado com sucesso.
-              A equipa da {platformName} vai validar a disponibilidade e entrar em contacto.
+            <p className="text-slate-500 mt-1.5 leading-relaxed text-sm max-w-xs mx-auto">
+              O seu pedido de <strong className="text-slate-700">{medName}</strong> foi criado.
+              Confirme via WhatsApp para avançar.
             </p>
           </div>
           {token && (
-            <div className="inline-block rounded-2xl bg-slate-100 border border-slate-200 px-4 py-2">
-              <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Referência do pedido</p>
-              <p className="font-mono font-bold text-slate-700 text-lg tracking-widest mt-0.5">{token}</p>
+            <div className="inline-flex flex-col items-center rounded-2xl bg-slate-100 border border-slate-200 px-4 py-2">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Referência</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="font-mono font-bold text-slate-700 text-lg tracking-widest">{token}</p>
+                <button
+                  onClick={() => { navigator.clipboard?.writeText(token); }}
+                  title="Copiar referência"
+                  className="p-1 text-slate-400 hover:text-teal-600 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        {/* CTA WhatsApp */}
-        <div className="card p-5 space-y-4 border-2 border-green-200 bg-[linear-gradient(180deg,#f0fdf4,#ffffff)] animate-fade-up" style={{ animationDelay:'100ms', animationFillMode:'backwards' }}>
-          <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-green-600">Próximo passo obrigatório</p>
-            <h2 className="mt-1 text-lg font-extrabold text-slate-950">Envie a primeira mensagem no WhatsApp</h2>
-            <p className="mt-1 text-sm text-slate-600 leading-relaxed">
-              Toque no botão abaixo e envie a mensagem pré-preenchida. A conversa fica ligada a este pedido para a equipa continuar o atendimento.
+        {/* ── CTA WhatsApp — destaque máximo ─────────────────── */}
+        <div
+          className="animate-fade-up rounded-[1.4rem] overflow-hidden border-2 border-green-300"
+          style={{ animationDelay: '80ms', animationFillMode: 'backwards',
+            background: 'linear-gradient(145deg,#f0fdf4 0%,#dcfce7 40%,#ffffff 100%)',
+            boxShadow: '0 8px 32px -6px rgba(34,197,94,0.20)' }}
+        >
+          <div className="px-5 pt-5 pb-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-green-700">Próximo passo obrigatório</p>
+            </div>
+            <h2 className="text-lg font-extrabold text-slate-950 leading-snug">
+              Inicie a conversa no WhatsApp
+            </h2>
+            <p className="mt-1 text-sm text-slate-500 leading-relaxed">
+              Toque no botão abaixo para abrir o WhatsApp com a mensagem já preenchida.
+              A conversa fica vinculada ao seu pedido.
             </p>
           </div>
-          <a
-            href={waLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="wa-btn w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] text-white font-extrabold py-4 px-4 shadow-lg shadow-green-200/70"
-          >
-            <span className="wa-btn-icon"><WhatsAppIcon /></span>
-            Abrir WhatsApp e enviar mensagem
-          </a>
-          <div className="rounded-2xl border border-green-200 bg-white/80 px-4 py-3">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Mensagem preparada</p>
-            <p className="mt-1 text-sm text-slate-700 leading-relaxed whitespace-pre-line">{waMessage}</p>
+          <div className="p-4">
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group w-full inline-flex items-center justify-center gap-3 rounded-2xl text-white font-extrabold py-4 px-5 text-base transition-all duration-200 hover:scale-[1.01] hover:brightness-110 active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg,#25D366 0%,#1ebe5d 100%)',
+                boxShadow: '0 6px 24px -4px rgba(37,211,102,0.45)' }}
+            >
+              <WhatsAppIcon />
+              Abrir WhatsApp agora
+              <ArrowRight />
+            </a>
           </div>
         </div>
 
-        {/* Próximos passos */}
-        <div className="card p-5 space-y-3 animate-fade-up" style={{ animationDelay:'200ms', animationFillMode:'backwards' }}>
-          <h2 className="font-extrabold text-slate-900 text-sm uppercase tracking-wider">O que acontece agora?</h2>
-          <div className="space-y-3">
+        {/* ── O que acontece agora ────────────────────────────── */}
+        <div
+          className="card p-5 space-y-3 animate-fade-up"
+          style={{ animationDelay: '160ms', animationFillMode: 'backwards' }}
+        >
+          <h2 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">O que acontece agora?</h2>
+          <div className="space-y-2.5">
             {STEPS.map((s, i) => (
               <div
-                key={s.step}
-                className={`flex gap-3 p-3 rounded-xl border ${s.tone === 'teal' ? 'bg-teal-50 border-teal-200' : 'bg-slate-50 border-slate-100'}`}
-                style={{ animation:'fadeUpIn .35s cubic-bezier(.16,1,.3,1) backwards', animationDelay:`${300 + i*90}ms` }}
+                key={s.n}
+                className={`flex gap-3 p-3 rounded-xl border ${
+                  s.tone === 'teal'
+                    ? 'bg-teal-50 border-teal-200'
+                    : 'bg-slate-50 border-slate-100'
+                }`}
+                style={{ animation: 'slideUp .3s cubic-bezier(.16,1,.3,1) backwards',
+                  animationDelay: `${220 + i * 70}ms` }}
               >
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${s.tone === 'teal' ? 'bg-teal-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                  {s.step}
-                </div>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0 ${
+                  s.tone === 'teal' ? 'bg-teal-500 text-white' : 'bg-slate-200 text-slate-600'
+                }`}>{s.n}</div>
                 <div>
                   <p className="font-semibold text-slate-800 text-sm">{s.title}</p>
                   <p className="text-xs text-slate-500 leading-relaxed mt-0.5">{s.desc}</p>
@@ -166,20 +194,18 @@ export function ThankYouPage() {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex flex-col gap-3 animate-fade-up" style={{ animationDelay:'580ms', animationFillMode:'backwards' }}>
-          <p className="text-center text-xs text-slate-400 leading-relaxed px-4">
-            Confirmação de preço, acompanhamento e próximos passos chegam pelo WhatsApp ligado a este pedido.
-          </p>
+        {/* ── Links secundários ────────────────────────────────── */}
+        <div
+          className="flex flex-col gap-2.5 animate-fade-up"
+          style={{ animationDelay: '380ms', animationFillMode: 'backwards' }}
+        >
           {token && (
-            <Link
-              to={`/acompanhar/${token}`}
-              className="btn-secondary text-center hover:-translate-y-0.5 transition-transform"
-            >
+            <Link to={`/acompanhar/${token}`}
+              className="btn-secondary text-center hover:-translate-y-0.5 transition-transform">
               Acompanhar pedido
             </Link>
           )}
-          <Link to="/" className="btn-ghost text-center text-slate-400">
+          <Link to="/" className="text-center text-sm text-slate-400 hover:text-slate-600 transition-colors py-1">
             Voltar ao início
           </Link>
         </div>

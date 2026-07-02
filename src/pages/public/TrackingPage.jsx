@@ -22,6 +22,20 @@ const STATUS_LABELS = {
   IN_PREPARATION:'Em preparação', IN_DELIVERY:'Em entrega',
   DELIVERED:'Entregue', CANCELLED:'Cancelado',
 }
+
+// Explains to the client what happens next — no technical jargon
+const STATUS_NEXT_STEP = {
+  NEW:                  'O pedido foi registado. A equipa vai analisar e entrar em contacto pelo WhatsApp em breve.',
+  PRESCRIPTION_PENDING: 'Precisamos do documento de receita. Siga as instruções que lhe foram enviadas pelo WhatsApp.',
+  IN_VALIDATION:        'A equipa está a verificar disponibilidade e a preparar a confirmação de preço.',
+  AWAITING_PHARMACY:    'Estamos a confirmar disponibilidade com a farmácia. Aguarda resposta em breve.',
+  AWAITING_CLIENT:      'O preço foi preparado e aguarda a sua confirmação. Responda pelo WhatsApp ou confirme aqui.',
+  CONFIRMED:            'Pedido confirmado. A equipa está a preparar o medicamento para entrega.',
+  IN_PREPARATION:       'O medicamento está a ser preparado. O motoboy será designado em breve.',
+  IN_DELIVERY:          'O motoboy está a caminho. Fique disponível na morada indicada.',
+  DELIVERED:            'Entrega concluída. Obrigado por confiar na MedGo.',
+  CANCELLED:            'Este pedido foi cancelado. Contacte-nos pelo WhatsApp se precisar de ajuda.',
+}
 const PAY_LABELS = { MPESA:'M-Pesa', EMOLA:'e-Mola', CASH_ON_DELIVERY:'Dinheiro na entrega', POS:'POS' }
 
 function WhatsAppIcon() {
@@ -242,7 +256,11 @@ export function TrackingPage() {
 
         <div className="mb-5">
           <h1 className="text-2xl font-extrabold text-slate-950 tracking-tight">Acompanhar pedido</h1>
-          <p className="text-sm text-slate-500 mt-1">Estado actual e próximos passos do processo.</p>
+          {STATUS_NEXT_STEP[order?.status] && (
+            <p className="text-sm text-slate-500 mt-1 leading-relaxed max-w-sm">
+              {STATUS_NEXT_STEP[order.status]}
+            </p>
+          )}
         </div>
 
         {/* Order summary card */}
@@ -251,6 +269,18 @@ export function TrackingPage() {
             <div className="min-w-0">
               <p className="text-xs font-extrabold uppercase tracking-widest text-slate-400 mb-1">Medicamento</p>
               <h2 className="font-extrabold text-slate-950 text-lg leading-tight break-words">{order.medication_name_snapshot}</h2>
+              <div className="flex items-center gap-1.5 mt-2">
+                <span className="font-mono text-xs text-slate-400 tracking-widest">{token}</span>
+                <button
+                  onClick={() => navigator.clipboard?.writeText(token)}
+                  title="Copiar referência"
+                  className="p-0.5 text-slate-300 hover:text-teal-500 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                  </svg>
+                </button>
+              </div>
             </div>
             <StatusPill status={order.status} />
           </div>
