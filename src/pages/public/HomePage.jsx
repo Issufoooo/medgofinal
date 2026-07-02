@@ -1,451 +1,439 @@
-import { useState, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link }      from 'react-router-dom'
 import { Grainient } from '../../components/public/Grainient'
-import GradualBlur from '../../components/public/GradualBlur'
-import { RotatingText } from '../../components/public/RotatingText'
-import { MedicationSearch } from '../../components/public/MedicationSearch'
-import { ComoFuncionaModal } from '../../components/public/ComoFuncionaModal'
-import { MagneticButton } from '../../components/public/MagneticButton'
-import { Reveal, RevealGroup } from '../../components/public/Reveal'
-import { CountUp } from '../../components/public/CountUp'
-import { useTilt } from '../../hooks/useReveal'
+import GradualBlur   from '../../components/public/GradualBlur'
+import { RotatingText }       from '../../components/public/RotatingText'
+import { MedicationSearch }   from '../../components/public/MedicationSearch'
+import { ComoFuncionaModal }  from '../../components/public/ComoFuncionaModal'
+import { MedGoLogo }          from '../../components/shared/MedGoLogo'
 
-// ── Icons ──────────────────────────────────────────────────────
-function PillIcon({ size = 'w-5 h-5' }) {
+/* ── Icons ─────────────────────────────────────────────────────── */
+function ArrowRight({ size = 16 }) {
   return (
-    <svg className={size} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.5 20.25l9.75-9.75a4.243 4.243 0 00-6-6L4.5 14.25a4.243 4.243 0 006 6z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.25 10.5l5.25 5.25" />
+    <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3"/>
     </svg>
   )
 }
-function CheckIcon({ size = 'w-4 h-4' }) {
+function PlayCircle({ size = 18 }) {
   return (
-    <svg className={size} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+    <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" strokeWidth={1.8}/>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 8l6 4-6 4V8z"/>
     </svg>
   )
 }
-function ShieldIcon({ size = 'w-6 h-6' }) {
+function CheckCircle({ size = 15 }) {
   return (
-    <svg className={size} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3.75l7.5 3v5.25c0 4.95-3.15 8.1-7.5 9.75-4.35-1.65-7.5-4.8-7.5-9.75V6.75l7.5-3z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-5" />
-    </svg>
-  )
-}
-function ChatIcon({ size = 'w-6 h-6' }) {
-  return (
-    <svg className={size} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-    </svg>
-  )
-}
-function TruckIcon({ size = 'w-6 h-6' }) {
-  return (
-    <svg className={size} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3m0 0h3l3 3v4a2 2 0 01-2 2h-1M5 17a2 2 0 100 4 2 2 0 000-4zm11 0a2 2 0 100 4 2 2 0 000-4z" />
-    </svg>
-  )
-}
-function DocumentIcon({ size = 'w-6 h-6' }) {
-  return (
-    <svg className={size} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7.5 3.75h6l4.5 4.5v12a1.5 1.5 0 01-1.5 1.5h-9a1.5 1.5 0 01-1.5-1.5v-15a1.5 1.5 0 011.5-1.5z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 3.75v4.5H18M9 13.5h6M9 17h4" />
-    </svg>
-  )
-}
-function ChevronRight() {
-  return (
-    <svg className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-    </svg>
-  )
-}
-function InfoIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
     </svg>
   )
 }
 
-// ── Content ───────────────────────────────────────────────────
-const STEPS_SHORT = [
-  { n: '01', title: 'Escolha', Icon: PillIcon },
-  { n: '02', title: 'Confirmamos', Icon: ChatIcon },
-  { n: '03', title: 'Recebe', Icon: TruckIcon },
-]
-
-const ORDER_TYPES = [
-  {
-    tag: 'Venda livre',
-    title: 'Pedido simples',
-    text: 'Para medicamentos comuns que não exigem receita. A equipa confirma disponibilidade e valor antes de avançar.',
-    cta: 'Pedir medicamento',
-    Icon: PillIcon,
-    featured: true,
-  },
-  {
-    tag: 'Com receita',
-    title: 'Pedido com documento',
-    text: 'Envie a receita quando necessário. A validação faz parte do processo.',
-    cta: 'Pedir com receita',
-    Icon: DocumentIcon,
-  },
-  {
-    tag: 'Acompanhado',
-    title: 'Com mais cuidado',
-    text: 'Para casos que precisam de orientação adicional antes de prosseguir.',
-    cta: 'Solicitar avaliação',
-    Icon: ShieldIcon,
-  },
-]
-
-const STATS = [
-  { value: 2, suffix: '', label: 'Zonas cobertas', sub: 'Maputo e Matola' },
-  { value: 98, suffix: '%', label: 'Confirmado antes', sub: 'de qualquer cobrança' },
-  { value: 12, suffix: 'h', label: 'Atendimento diário', sub: '08h00 – 20h00' },
-]
-
-// ── Spotlight handler (shared) ──────────────────────────────────
-function handleSpotlight(e) {
-  const card = e.currentTarget
-  const rect = card.getBoundingClientRect()
-  card.style.setProperty('--x', `${e.clientX - rect.left}px`)
-  card.style.setProperty('--y', `${e.clientY - rect.top}px`)
-}
-
-// ── Hero decorative card (with subtle tilt) ─────────────────────
+/* ── Floating order card (right side visual) ─────────────────── */
 function HeroCard() {
-  const { ref, tilt, onMouseMove, onMouseLeave } = useTilt(10)
   return (
-    <div
-      ref={ref}
-      onMouseMove={onMouseMove}
-      onMouseLeave={onMouseLeave}
-      className="relative mx-auto max-w-md"
-      style={{ perspective: 1000 }}
-    >
-      <div className="absolute -inset-8 rounded-full bg-teal-200/40 blur-3xl pointer-events-none animate-pulse2" style={{ animationDuration: '4s' }} />
-      <div
-        className="relative rounded-[2rem] border border-teal-100 bg-white/90 p-5 shadow-card-xl backdrop-blur-xl transition-transform duration-150 ease-out"
-        style={{ transform: `rotateY(${tilt.x}deg) rotateX(${-tilt.y}deg)`, transformStyle: 'preserve-3d' }}
-      >
-        <div className="mb-4 flex items-center justify-between rounded-[1.4rem] border border-teal-100 bg-teal-50/80 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-teal-600 shadow-card">
-              <PillIcon size="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-teal-500">Pedido recebido</p>
-              <p className="text-base font-extrabold leading-none text-slate-950">Em confirmação</p>
-            </div>
+    <div style={{
+      background: 'rgba(255,255,255,0.82)',
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+      border: '1px solid rgba(255,255,255,0.9)',
+      borderRadius: 24,
+      padding: '24px',
+      boxShadow: '0 24px 60px -12px rgba(15,118,110,0.18), 0 8px 24px -8px rgba(0,0,0,0.08)',
+      width: '100%',
+      maxWidth: 340,
+      animation: 'heroCardIn 0.7s cubic-bezier(.16,1,.3,1) 0.3s both',
+    }}>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ width:38, height:38, borderRadius:10, background:'#f0fdfa', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <svg width="18" height="18" fill="none" stroke="#0d9488" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.5 20.25l9.75-9.75a4.243 4.243 0 00-6-6L4.5 14.25a4.243 4.243 0 006 6z"/>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.25 10.5l5.25 5.25"/>
+            </svg>
           </div>
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-600 text-white">
-            <CheckIcon />
-          </span>
-        </div>
-
-        <div className="space-y-3 rounded-[1.4rem] border border-slate-100 bg-white p-4">
-          {[
-            { label: 'Pedido enviado', color: 'bg-teal-600', done: true },
-            { label: 'Disponibilidade em confirmação', color: 'bg-teal-500', done: true, pulse: true },
-            { label: 'Valor confirmado antes de avançar', color: 'bg-slate-300' },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center gap-3">
-              <span className={`h-2.5 w-2.5 rounded-full ${item.color} ${item.pulse ? 'animate-pulse2' : ''}`} />
-              <span className={`text-sm ${item.done ? 'font-semibold text-slate-800' : 'text-slate-500'}`}>{item.label}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-4 rounded-[1.4rem] border border-teal-100 bg-teal-50 px-4 py-3">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-teal-700 shadow-card">
-              <ChatIcon size="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm font-extrabold text-slate-900">Acompanhamento pelo WhatsApp</p>
-              <p className="text-xs leading-relaxed text-slate-500">A equipa confirma disponibilidade, valor e próximos passos.</p>
-            </div>
+          <div>
+            <p style={{ fontSize:11, fontWeight:700, color:'#0d9488', textTransform:'uppercase', letterSpacing:'0.06em', lineHeight:1 }}>Pedido recebido</p>
+            <p style={{ fontSize:14, fontWeight:700, color:'#0f172a', lineHeight:1.2, marginTop:2 }}>Em confirmação</p>
           </div>
         </div>
+        <div style={{ width:28, height:28, borderRadius:'50%', background:'#14b8a6', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <svg width="13" height="13" fill="none" stroke="white" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/>
+          </svg>
+        </div>
+      </div>
+
+      {/* Steps */}
+      <div style={{ background:'#f8fafc', borderRadius:12, padding:'12px 14px', marginBottom:14, display:'flex', flexDirection:'column', gap:10 }}>
+        {[
+          { label:'Pedido enviado',              done:true  },
+          { label:'Disponibilidade a confirmar', done:true, pulse:true },
+          { label:'Confirmação antes de avançar',done:false },
+        ].map(s => (
+          <div key={s.label} style={{ display:'flex', alignItems:'center', gap:9 }}>
+            <span style={{
+              width:8, height:8, borderRadius:'50%', flexShrink:0,
+              background: s.done ? '#14b8a6' : '#e2e8f0',
+              boxShadow: s.pulse ? '0 0 0 3px rgba(20,184,166,0.2)' : 'none',
+            }}/>
+            <span style={{ fontSize:12, fontWeight: s.done ? 600 : 400, color: s.done ? '#0f172a' : '#94a3b8' }}>
+              {s.label}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* WhatsApp row */}
+      <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:12, padding:'10px 12px', display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{ width:32, height:32, borderRadius:8, background:'white', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+          <svg width="16" height="16" fill="#25D366" viewBox="0 0 24 24">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884"/>
+          </svg>
+        </div>
+        <div>
+          <p style={{ fontSize:12, fontWeight:700, color:'#15803d' }}>Acompanhamento pelo WhatsApp</p>
+          <p style={{ fontSize:11, color:'#64748b', marginTop:1 }}>Confirmação antes de qualquer cobrança</p>
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:12 }}>
+        {[
+          { val:'< 2h',     lbl:'Tempo médio'   },
+          { val:'Maputo',   lbl:'& Matola'       },
+        ].map(s => (
+          <div key={s.val} style={{ background:'#f8fafc', borderRadius:10, padding:'8px 10px', textAlign:'center' }}>
+            <p style={{ fontSize:16, fontWeight:800, color:'#0f766e', fontFamily:"'Khand',system-ui,sans-serif", letterSpacing:'-0.02em', lineHeight:1 }}>{s.val}</p>
+            <p style={{ fontSize:10, fontWeight:600, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.06em', marginTop:3 }}>{s.lbl}</p>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
-// ── Page ───────────────────────────────────────────────────────
+/* ── Page ──────────────────────────────────────────────────────── */
 export function HomePage() {
   const [comoOpen, setComoOpen] = useState(false)
 
   return (
-    <div className="overflow-x-hidden bg-white text-slate-900">
+    <div style={{ overflowX:'hidden', background:'#fff' }}>
 
-      {/* HERO */}
-      <section className="relative overflow-hidden bg-[linear-gradient(135deg,#f0fdfa_0%,#ffffff_38%,#ccfbf1_72%,#ecfeff_100%)]" aria-label="Apresentação MedGo">
+      {/* ── HERO — full-viewport ──────────────────────────────── */}
+      <section style={{ position:'relative', minHeight:'100svh', display:'flex', alignItems:'center', overflow:'hidden' }}>
+
+        {/* Animated background */}
         <Grainient
-          className="opacity-55 mix-blend-multiply"
-          timeSpeed={0.08} colorBalance={0.26} warpStrength={0.58} warpFrequency={2.2}
-          warpSpeed={0.65} warpAmplitude={92} blendAngle={18} grainAmount={0.035}
-          contrast={0.92} saturation={0.95} color1="#ffffff" color2="#ccfbf1" color3="#14b8a6"
+          className="z-0"
+          timeSpeed={0.07} colorBalance={0.28} warpStrength={0.6}
+          warpFrequency={2.0} warpSpeed={0.6} warpAmplitude={90}
+          grainAmount={0.03} contrast={0.9} saturation={1.0}
+          color1="#ccfbf1" color2="#14b8a6" color3="#f97316"
         />
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_20%,rgba(204,251,241,0.92),transparent_34%),radial-gradient(circle_at_88%_16%,rgba(20,184,166,0.32),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.48),rgba(255,255,255,0.80)_64%,#ffffff)]" />
-        <div className="absolute right-[8%] top-24 h-2 w-2 rounded-full bg-orange-400/70 shadow-[0_0_24px_rgba(249,115,22,0.35)] drift" />
-        <div className="absolute left-[12%] top-44 h-1.5 w-1.5 rounded-full bg-teal-400/70 shadow-[0_0_18px_rgba(20,184,166,0.4)] drift-delay" />
 
-        <div className="page-wrap relative z-10 py-14 sm:py-18 lg:py-20">
-          <div className="grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-            <div className="max-w-2xl">
-              <Reveal variant="fade" duration={500}>
-                <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-teal-100 bg-white/80 px-4 py-2 text-xs font-bold text-teal-700 shadow-card backdrop-blur-md">
-                  <span className="h-2 w-2 rounded-full bg-teal-500 shadow-[0_0_16px_rgba(20,184,166,0.5)] animate-pulse2" />
-                  Maputo · Matola · pedido assistido
-                </div>
-              </Reveal>
+        {/* Left-to-right overlay so text stays readable */}
+        <div style={{
+          position:'absolute', inset:0, zIndex:1,
+          background:'linear-gradient(105deg, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.92) 38%, rgba(255,255,255,0.55) 62%, rgba(255,255,255,0) 100%)',
+        }}/>
 
-              <Reveal delay={60}>
-                <h1 className="font-black tracking-tight text-slate-950 leading-[0.95]" style={{ fontSize: 'clamp(2.55rem, 6vw, 4.7rem)' }}>
-                  <span className="block mb-1">Medicamentos com</span>
-                  <span className="block min-h-[1.08em] text-teal-600">
-                    <RotatingText
-                      texts={['facilidade.', 'confiança.', 'acompanhamento.', 'cuidado.']}
-                      interval={3000}
-                      wordClassName="text-teal-600"
-                    />
-                  </span>
-                </h1>
-              </Reveal>
+        {/* Content grid */}
+        <div style={{
+          position:'relative', zIndex:2,
+          width:'100%', maxWidth:1280,
+          margin:'0 auto',
+          padding:'7rem 4rem 5rem',
+          display:'grid',
+          gridTemplateColumns:'1fr 1fr',
+          gap:'4rem',
+          alignItems:'center',
+        }} className="hero-grid">
 
-              <Reveal delay={130}>
-                <p className="mt-6 max-w-xl text-base md:text-lg leading-relaxed text-slate-600">
-                  Escolha o medicamento, envie a solicitação e receba confirmação de disponibilidade e valor antes de qualquer cobrança.
-                </p>
-              </Reveal>
+          {/* ── LEFT — text ────────────────────────────────────── */}
+          <div style={{ maxWidth:560 }}>
 
-              <Reveal delay={190}>
-                <div className="mt-8 flex flex-col sm:flex-row gap-3">
-                  <MagneticButton strength={0.25}>
-                    <Link
-                      to="/medicamentos"
-                      className="cta-sweep inline-flex items-center justify-center gap-2 rounded-full bg-teal-600 px-7 py-4 text-sm font-extrabold text-white shadow-card-lg transition hover:-translate-y-0.5 hover:bg-teal-700 hover:shadow-[0_12px_28px_-6px_rgba(13,148,136,0.45)]"
-                    >
-                      <PillIcon size="w-4 h-4" />
-                      Ver medicamentos
-                    </Link>
-                  </MagneticButton>
-                  <MagneticButton strength={0.25}>
-                    <button
-                      onClick={() => setComoOpen(true)}
-                      className="inline-flex items-center justify-center gap-2 rounded-full border border-teal-200 bg-white px-7 py-4 text-sm font-extrabold text-teal-700 shadow-card transition hover:-translate-y-0.5 hover:bg-teal-50 hover:border-teal-300"
-                    >
-                      <InfoIcon /> Como funciona
-                    </button>
-                  </MagneticButton>
-                </div>
-              </Reveal>
-
-              <Reveal delay={250}>
-                <div className="mt-8 max-w-xl rounded-[1.65rem] border border-teal-100 bg-white/85 p-3 shadow-card-md backdrop-blur-md search-shell">
-                  <MedicationSearch />
-                </div>
-              </Reveal>
-
-              <Reveal delay={300}>
-                <p className="mt-5 max-w-lg text-xs leading-relaxed text-slate-500">
-                  A MedGo não substitui consulta médica. Pedidos com receita ou acompanhamento seguem um processo mais cuidadoso.
-                </p>
-              </Reveal>
-            </div>
-
-            <Reveal variant="scale" delay={200} className="hidden lg:block">
-              <HeroCard />
-            </Reveal>
-          </div>
-
-          {/* Mini step strip — replaces the old full "como funciona" section */}
-          <Reveal delay={360}>
-            <button
-              onClick={() => setComoOpen(true)}
-              className="group mt-12 flex w-full flex-wrap items-center gap-x-8 gap-y-3 rounded-2xl border border-teal-100 bg-white/70 px-5 py-4 backdrop-blur-md transition-all hover:bg-white hover:shadow-card-md text-left"
-            >
-              {STEPS_SHORT.map((s, i) => {
-                const Icon = s.Icon
-                return (
-                  <div key={s.n} className="flex items-center gap-2.5">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-50 text-teal-700 border border-teal-100 text-xs font-extrabold">
-                      {s.n}
-                    </span>
-                    <span className="flex items-center gap-1.5 text-sm font-bold text-slate-700">
-                      <Icon size="w-4 h-4" /> {s.title}
-                    </span>
-                    {i < STEPS_SHORT.length - 1 && (
-                      <span className="hidden sm:block text-teal-200 ml-3">—</span>
-                    )}
-                  </div>
-                )
-              })}
-              <span className="ml-auto inline-flex items-center gap-1 text-xs font-extrabold uppercase tracking-wide text-teal-600 group-hover:text-teal-800">
-                Ver processo completo <ChevronRight />
+            {/* Chip */}
+            <div style={{
+              display:'inline-flex', alignItems:'center', gap:8,
+              background:'#e0f2fe', borderRadius:9999,
+              padding:'6px 14px',
+              marginBottom:28,
+              animation:'fadeInUp 0.5s cubic-bezier(0.4,0,0.2,1) both',
+            }}>
+              <span style={{ width:6, height:6, borderRadius:'50%', background:'#0369a1', flexShrink:0 }}/>
+              <span style={{ fontSize:11, fontWeight:700, color:'#0369a1', textTransform:'uppercase', letterSpacing:'0.1em', fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif" }}>
+                Entrega ao domicílio · Maputo &amp; Matola
               </span>
+            </div>
+
+            {/* Headline */}
+            <h1 style={{
+              fontFamily:"'Khand',system-ui,sans-serif",
+              fontWeight:700,
+              fontSize:'clamp(2.6rem,5vw,4.5rem)',
+              lineHeight:1.05,
+              letterSpacing:'-0.025em',
+              color:'#0a192f',
+              marginBottom:24,
+              animation:'fadeInUp 0.5s cubic-bezier(0.4,0,0.2,1) 0.08s both',
+            }}>
+              Medicamentos<br/>
+              <span style={{ color:'#14b8a6' }}>
+                <RotatingText
+                  texts={['com cuidado.','com confiança.','ao domicílio.','confirmados.']}
+                  interval={3200}
+                  wordClassName=""
+                />
+              </span>
+            </h1>
+
+            {/* Description */}
+            <p style={{
+              fontSize:'1.1rem',
+              fontWeight:400,
+              lineHeight:1.65,
+              color:'#475569',
+              marginBottom:32,
+              maxWidth:480,
+              fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif",
+              animation:'fadeInUp 0.5s cubic-bezier(0.4,0,0.2,1) 0.16s both',
+            }}>
+              A MedGo leva os seus medicamentos até si — com confirmação de disponibilidade
+              e valor antes de qualquer cobrança.
+            </p>
+
+            {/* CTA buttons */}
+            <div style={{
+              display:'flex', flexWrap:'wrap', gap:12, marginBottom:40,
+              animation:'fadeInUp 0.5s cubic-bezier(0.4,0,0.2,1) 0.24s both',
+            }}>
+              <Link
+                to="/medicamentos"
+                className="hero-btn-primary"
+                style={{
+                  display:'inline-flex', alignItems:'center', gap:8,
+                  background:'#0c2b64',
+                  color:'white',
+                  fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif",
+                  fontWeight:600,
+                  fontSize:'0.95rem',
+                  padding:'0.8rem 1.6rem',
+                  borderRadius:9999,
+                  textDecoration:'none',
+                  transition:'all 0.2s ease',
+                  boxShadow:'0 4px 16px rgba(12,43,100,0.28)',
+                }}
+              >
+                Ver medicamentos <ArrowRight />
+              </Link>
+
+              <button
+                onClick={() => setComoOpen(true)}
+                className="hero-btn-secondary"
+                style={{
+                  display:'inline-flex', alignItems:'center', gap:8,
+                  background:'rgba(255,255,255,0.5)',
+                  backdropFilter:'blur(8px)',
+                  WebkitBackdropFilter:'blur(8px)',
+                  border:'1px solid rgba(0,0,0,0.1)',
+                  color:'#0f172a',
+                  fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif",
+                  fontWeight:600,
+                  fontSize:'0.95rem',
+                  padding:'0.8rem 1.6rem',
+                  borderRadius:9999,
+                  cursor:'pointer',
+                  transition:'all 0.2s ease',
+                }}
+              >
+                <PlayCircle /> Como funciona
+              </button>
+            </div>
+
+            {/* Trust indicators */}
+            <div style={{
+              display:'flex', flexWrap:'wrap', gap:20,
+              animation:'fadeInUp 0.5s cubic-bezier(0.4,0,0.2,1) 0.32s both',
+            }}>
+              {[
+                'Confirmação antes de avançar',
+                'Receita quando necessário',
+                'Acompanhamento em tempo real',
+              ].map(t => (
+                <div key={t} style={{ display:'flex', alignItems:'center', gap:6, color:'#0f766e' }}>
+                  <CheckCircle />
+                  <span style={{ fontSize:12, fontWeight:600, color:'#475569', fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif" }}>{t}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Search */}
+            <div style={{
+              marginTop:36,
+              background:'rgba(255,255,255,0.85)',
+              backdropFilter:'blur(10px)',
+              border:'1px solid rgba(20,184,166,0.2)',
+              borderRadius:14,
+              padding:10,
+              boxShadow:'0 4px 20px rgba(20,184,166,0.1)',
+              animation:'fadeInUp 0.5s cubic-bezier(0.4,0,0.2,1) 0.38s both',
+            }}>
+              <MedicationSearch />
+            </div>
+          </div>
+
+          {/* ── RIGHT — floating card ──────────────────────────── */}
+          <div style={{ display:'flex', justifyContent:'center', alignItems:'center' }} className="hero-card-col">
+            <HeroCard />
+          </div>
+        </div>
+
+        <GradualBlur position="bottom" height="80px" strength={2} divCount={7} curve="bezier" zIndex={5}/>
+      </section>
+
+      {/* ── SOCIAL PROOF STRIP ──────────────────────────────── */}
+      <section style={{ background:'#f8fafc', borderTop:'1px solid #e2e8f0', borderBottom:'1px solid #e2e8f0', padding:'20px 4rem' }}>
+        <div style={{ maxWidth:1280, margin:'0 auto', display:'flex', flexWrap:'wrap', alignItems:'center', justifyContent:'center', gap:'2.5rem' }}>
+          {[
+            { val:'< 2h',      lbl:'Tempo médio de entrega'     },
+            { val:'2 zonas',   lbl:'Maputo e Matola'            },
+            { val:'100%',      lbl:'Confirmado antes de cobrar' },
+            { val:'Seg–Sáb',   lbl:'08h00 – 20h00'             },
+          ].map((s, i) => (
+            <div key={s.val} style={{ display:'flex', alignItems:'center', gap: i < 3 ? '2.5rem' : 0 }}>
+              <div style={{ textAlign:'center' }}>
+                <p style={{ fontSize:'1.6rem', fontWeight:700, color:'#0f766e', fontFamily:"'Khand',system-ui,sans-serif", letterSpacing:'-0.02em', lineHeight:1 }}>{s.val}</p>
+                <p style={{ fontSize:11, fontWeight:600, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.08em', marginTop:3, fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif" }}>{s.lbl}</p>
+              </div>
+              {i < 3 && <div style={{ width:1, height:32, background:'rgba(0,0,0,0.1)' }}/>}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── HOW IT WORKS — compact, 3 steps ─────────────────── */}
+      <section style={{ padding:'5rem 4rem', background:'white' }}>
+        <div style={{ maxWidth:1280, margin:'0 auto' }}>
+          <div style={{ textAlign:'center', marginBottom:'3rem' }}>
+            <p style={{ fontSize:11, fontWeight:700, color:'#14b8a6', textTransform:'uppercase', letterSpacing:'0.14em', marginBottom:10, fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif" }}>
+              Como funciona
+            </p>
+            <h2 style={{ fontFamily:"'Khand',system-ui,sans-serif", fontWeight:700, fontSize:'clamp(1.8rem,3vw,2.6rem)', letterSpacing:'-0.025em', color:'#0a192f', lineHeight:1.1 }}>
+              Um pedido simples, com confirmação antes de avançar.
+            </h2>
+          </div>
+
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'2rem' }} className="steps-grid">
+            {[
+              {
+                n:'01', icon:(
+                  <svg width="22" height="22" fill="none" stroke="#0d9488" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.5 20.25l9.75-9.75a4.243 4.243 0 00-6-6L4.5 14.25a4.243 4.243 0 006 6z"/>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.25 10.5l5.25 5.25"/>
+                  </svg>
+                ),
+                title:'Escolha o medicamento',
+                desc:'Pesquise no catálogo e submeta a solicitação com os seus dados de entrega.',
+              },
+              {
+                n:'02', icon:(
+                  <svg width="22" height="22" fill="none" stroke="#0d9488" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                  </svg>
+                ),
+                title:'A equipa confirma',
+                desc:'Verificamos disponibilidade e enviamos o preço final pelo WhatsApp antes de qualquer cobrança.',
+              },
+              {
+                n:'03', icon:(
+                  <svg width="22" height="22" fill="none" stroke="#0d9488" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3m0 0h3l3 3v4a2 2 0 01-2 2h-1M5 17a2 2 0 100 4 2 2 0 000-4zm11 0a2 2 0 100 4 2 2 0 000-4z"/>
+                  </svg>
+                ),
+                title:'Receba em casa',
+                desc:'Confirme e aguarde. O motoboy sai e pode acompanhar a entrega em tempo real.',
+              },
+            ].map((step, i) => (
+              <div key={step.n} style={{
+                background:'#f8fafc',
+                border:'1px solid #e2e8f0',
+                borderRadius:16,
+                padding:'28px 24px',
+                position:'relative',
+                transition:'all 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(20,184,166,0.3)'; e.currentTarget.style.boxShadow='0 8px 24px rgba(20,184,166,0.1)'; e.currentTarget.style.transform='translateY(-2px)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor='#e2e8f0'; e.currentTarget.style.boxShadow='none'; e.currentTarget.style.transform='none' }}
+              >
+                <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:16 }}>
+                  <div style={{ width:44, height:44, borderRadius:12, background:'#f0fdfa', border:'1px solid #ccfbf1', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    {step.icon}
+                  </div>
+                  <span style={{ fontSize:'2.2rem', fontWeight:800, color:'#e2e8f0', fontFamily:"'Khand',system-ui,sans-serif", lineHeight:1 }}>{step.n}</span>
+                </div>
+                <h3 style={{ fontFamily:"'Khand',system-ui,sans-serif", fontWeight:700, fontSize:'1.15rem', letterSpacing:'-0.01em', color:'#0a192f', marginBottom:8 }}>{step.title}</h3>
+                <p style={{ fontSize:13, color:'#64748b', lineHeight:1.6, fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif" }}>{step.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FINAL CTA ───────────────────────────────────────── */}
+      <section style={{
+        margin:'0 4rem 5rem',
+        borderRadius:24,
+        overflow:'hidden',
+        position:'relative',
+        background:'linear-gradient(135deg,#0c2b64 0%,#0f766e 60%,#134e4a 100%)',
+        padding:'4rem',
+      }} className="cta-section">
+        <div style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(rgba(255,255,255,0.06) 1px,transparent 1px)', backgroundSize:'24px 24px', pointerEvents:'none' }}/>
+        <div style={{ position:'relative', maxWidth:640, margin:'0 auto', textAlign:'center' }}>
+          <p style={{ fontSize:11, fontWeight:700, color:'rgba(20,184,166,0.9)', textTransform:'uppercase', letterSpacing:'0.14em', marginBottom:16, fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif" }}>
+            Pronto para começar?
+          </p>
+          <h2 style={{ fontFamily:"'Khand',system-ui,sans-serif", fontWeight:700, fontSize:'clamp(1.8rem,3vw,2.8rem)', letterSpacing:'-0.025em', color:'white', lineHeight:1.1, marginBottom:16 }}>
+            Comece pelo catálogo.<br/>A confirmação vem antes.
+          </h2>
+          <p style={{ fontSize:14, color:'rgba(255,255,255,0.65)', lineHeight:1.65, marginBottom:32, fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif" }}>
+            Pesquise, envie a solicitação e aguarde a confirmação da equipa. Simples, claro e sem pressão.
+          </p>
+          <div style={{ display:'flex', justifyContent:'center', flexWrap:'wrap', gap:12 }}>
+            <Link to="/medicamentos" style={{
+              display:'inline-flex', alignItems:'center', gap:8,
+              background:'#14b8a6', color:'white',
+              fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif",
+              fontWeight:700, fontSize:'0.95rem',
+              padding:'0.85rem 1.8rem', borderRadius:9999,
+              textDecoration:'none',
+              boxShadow:'0 4px 20px rgba(20,184,166,0.4)',
+              transition:'all 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 8px 28px rgba(20,184,166,0.5)' }}
+            onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 4px 20px rgba(20,184,166,0.4)' }}
+            >
+              Ver medicamentos <ArrowRight />
+            </Link>
+            <button onClick={() => setComoOpen(true)} style={{
+              display:'inline-flex', alignItems:'center', gap:8,
+              background:'rgba(255,255,255,0.1)', backdropFilter:'blur(8px)',
+              border:'1px solid rgba(255,255,255,0.2)', color:'white',
+              fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif",
+              fontWeight:600, fontSize:'0.95rem',
+              padding:'0.85rem 1.8rem', borderRadius:9999, cursor:'pointer',
+              transition:'all 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,0.18)' }}
+            onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,0.1)' }}
+            >
+              <PlayCircle /> Como funciona
             </button>
-          </Reveal>
-        </div>
-
-        <GradualBlur position="bottom" height="90px" strength={2.2} divCount={8} curve="bezier" exponential zIndex={5} />
-      </section>
-
-      {/* TIPOS DE PEDIDO — asymmetric: 1 featured + 2 compact */}
-      <section className="section-sm bg-white">
-        <div className="page-wrap">
-          <Reveal>
-            <div className="mb-9 max-w-xl">
-              <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.2em] text-teal-600">Tipos de pedido</p>
-              <h2 className="text-2xl md:text-3xl font-extrabold text-slate-950 leading-snug">
-                Cada medicamento tem o seu caminho certo.
-              </h2>
-            </div>
-          </Reveal>
-
-          <div className="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
-            {/* Featured card */}
-            <Reveal variant="left" delay={60}>
-              <div
-                onMouseMove={handleSpotlight}
-                className="spotlight-card interactive-card group relative flex h-full flex-col justify-between overflow-hidden rounded-[1.75rem] border border-teal-100 bg-[linear-gradient(135deg,#f0fdfa_0%,#ffffff_70%)] p-7"
-              >
-                <div>
-                  <div className="mb-6 flex items-center justify-between">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-teal-100 bg-white text-teal-700 shadow-card transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
-                      <PillIcon size="w-5 h-5" />
-                    </div>
-                    <span className="rounded-full border border-teal-200 bg-white px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide text-teal-700">
-                      Venda livre
-                    </span>
-                  </div>
-                  <h3 className="mb-2 text-2xl font-extrabold leading-tight text-slate-950">Pedido simples</h3>
-                  <p className="max-w-sm text-sm leading-relaxed text-slate-500">
-                    Para medicamentos comuns que não exigem receita. A equipa confirma disponibilidade e valor antes de avançar — sem complicações.
-                  </p>
-                </div>
-                <Link to="/medicamentos" className="group/link mt-7 inline-flex w-fit items-center gap-1.5 text-sm font-extrabold uppercase tracking-[0.1em] text-teal-600 transition-colors hover:text-teal-800">
-                  Pedir medicamento
-                  <svg className="w-4 h-4 transition-transform duration-200 group-hover/link:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
-                </Link>
-              </div>
-            </Reveal>
-
-            {/* Two compact cards stacked */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-              {ORDER_TYPES.slice(1).map((type, i) => {
-                const Icon = type.Icon
-                return (
-                  <Reveal key={type.title} variant="right" delay={120 + i * 80}>
-                    <div
-                      onMouseMove={handleSpotlight}
-                      className="spotlight-card interactive-card group flex h-full items-start gap-4 rounded-2xl border border-teal-100 bg-white p-5"
-                    >
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-teal-100 bg-teal-50 text-teal-700 transition-transform duration-300 group-hover:scale-110">
-                        <Icon size="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-extrabold uppercase tracking-wide text-teal-600">{type.tag}</span>
-                        <h3 className="mb-1 text-base font-extrabold leading-tight text-slate-950">{type.title}</h3>
-                        <p className="text-xs leading-relaxed text-slate-500">{type.text}</p>
-                        <Link to="/medicamentos" className="group/link mt-2.5 inline-flex items-center gap-1 text-xs font-extrabold text-teal-600 transition-colors hover:text-teal-800">
-                          {type.cta}
-                          <svg className="w-3.5 h-3.5 transition-transform duration-200 group-hover/link:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
-                        </Link>
-                      </div>
-                    </div>
-                  </Reveal>
-                )
-              })}
-            </div>
           </div>
-        </div>
-      </section>
-
-      {/* CONFIANÇA — stats with live counters + promise strip merged */}
-      <section className="section-sm border-y border-teal-100 bg-[linear-gradient(180deg,#f7fbff,#ffffff)]">
-        <div className="page-wrap">
-          <div className="overflow-hidden rounded-[2.25rem] border border-teal-100 bg-[linear-gradient(135deg,#0f766e_0%,#0d9488_45%,#042f2e_100%)] shadow-card-xl">
-            <div className="relative px-6 py-12 md:px-12 md:py-14">
-              <div className="absolute right-10 top-10 h-2 w-2 rounded-full bg-orange-400/80 drift" />
-              <div className="absolute left-10 bottom-10 h-1.5 w-1.5 rounded-full bg-white/40 drift-delay" />
-
-              <Reveal>
-                <div className="mb-10 max-w-2xl">
-                  <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.22em] text-teal-200">A nossa promessa</p>
-                  <h2 className="mb-3 text-3xl md:text-4xl font-extrabold leading-tight tracking-tight text-white">
-                    Menos pressa. Mais confirmação.
-                  </h2>
-                  <p className="max-w-xl leading-relaxed text-teal-50/90">
-                    Confirmamos o essencial antes de qualquer avanço, para decidir com segurança.
-                  </p>
-                </div>
-              </Reveal>
-
-              <RevealGroup
-                variant="up"
-                stagger={100}
-                baseDelay={80}
-                className="grid gap-4 sm:grid-cols-3"
-              >
-                {STATS.map((s) => (
-                  <div key={s.label} className="rounded-2xl border border-white/15 bg-white/[0.07] p-5 backdrop-blur-sm transition-all hover:bg-white/[0.12] hover:-translate-y-1">
-                    <p className="tabular-nums text-4xl font-black leading-none text-white">
-                      <CountUp value={s.value} suffix={s.suffix} />
-                    </p>
-                    <p className="mt-2 text-sm font-bold text-teal-50">{s.label}</p>
-                    <p className="text-xs text-teal-100/70">{s.sub}</p>
-                  </div>
-                ))}
-              </RevealGroup>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA FINAL */}
-      <section className="section-sm bg-white">
-        <div className="page-wrap">
-          <Reveal variant="scale">
-            <div className="relative overflow-hidden rounded-[2rem] border border-teal-100 bg-[linear-gradient(180deg,#ffffff,#f7fbff)] px-8 py-12 text-center shadow-card-lg">
-              <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-teal-100/50 blur-2xl" />
-              <div className="absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-orange-100/50 blur-2xl" />
-
-              <div className="relative mx-auto max-w-2xl">
-                <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.2em] text-teal-600">Pronto para começar?</p>
-                <h2 className="mb-4 text-3xl md:text-4xl font-extrabold tracking-tight text-slate-950 text-balance">
-                  Comece pelo catálogo. A confirmação vem depois.
-                </h2>
-                <p className="mx-auto mb-8 max-w-lg text-base leading-relaxed text-slate-500">
-                  Pesquise, envie a solicitação e aguarde a confirmação da equipa. Simples, claro e sem pressão.
-                </p>
-                <div className="flex flex-col justify-center gap-3 sm:flex-row">
-                  <MagneticButton strength={0.25}>
-                    <Link to="/medicamentos" className="cta-sweep inline-flex items-center justify-center gap-2 rounded-full bg-teal-600 px-8 py-4 text-sm font-extrabold text-white shadow-card-lg transition hover:-translate-y-0.5 hover:bg-teal-700">
-                      <PillIcon size="w-4 h-4" /> Ver medicamentos
-                    </Link>
-                  </MagneticButton>
-                  <MagneticButton strength={0.25}>
-                    <button
-                      onClick={() => setComoOpen(true)}
-                      className="inline-flex items-center justify-center gap-2 rounded-full border border-teal-200 bg-white px-8 py-4 text-sm font-extrabold text-teal-700 transition hover:-translate-y-0.5 hover:bg-teal-50"
-                    >
-                      <InfoIcon /> Entender o processo
-                    </button>
-                  </MagneticButton>
-                </div>
-                <p className="mt-6 text-xs text-slate-400">
-                  Segunda a sábado, 08h00–20h00 · Maputo e Matola
-                </p>
-              </div>
-            </div>
-          </Reveal>
         </div>
       </section>
 
