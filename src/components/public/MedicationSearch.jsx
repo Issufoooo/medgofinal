@@ -29,13 +29,35 @@ export function MedicationSearch({ size = 'lg', autoFocus = false, initialQuery 
     return () => document.removeEventListener('mousedown', fn)
   }, [])
 
+  // Mostra medicamentos de venda livre ao focar — sem precisar escrever nada
+  const loadFreeMedications = useCallback(async () => {
+    if (results.length > 0) { setOpen(true); return }
+    setLoading(true)
+    try {
+      const { data } = await supabase
+        .from('medications')
+        .select('id, commercial_name, generic_name, dosage, category, requires_prescription')
+        .eq('category', 'FREE')
+        .eq('is_visible', true)
+        .is('deleted_at', null)
+        .order('commercial_name', { ascending: true })
+        .limit(8)
+      setResults(data || [])
+      setOpen(true)
+      setActiveIdx(-1)
+    } catch { /* silent */ } finally {
+      setLoading(false)
+    }
+  }, [results.length])
+
   const search = useCallback(async (q) => {
     if (q.trim().length < 2) {
+      // Se o campo está vazio, mostra venda livre
+      if (q.trim().length === 0) { loadFreeMedications(); return }
       setResults([])
       setOpen(false)
       return
     }
-
     setLoading(true)
     try {
       const { data } = await supabase.rpc('search_medications', { query: q.trim() })
@@ -47,13 +69,21 @@ export function MedicationSearch({ size = 'lg', autoFocus = false, initialQuery 
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [loadFreeMedications])
 
   const handleChange = (e) => {
     const v = e.target.value
     setQuery(v)
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => search(v), 260)
+  }
+
+  const handleFocus = () => {
+    if (!query || query.trim().length === 0) {
+      loadFreeMedications()
+    } else {
+      setOpen(true)
+    }
   }
 
   const handleSelect = (med) => {
@@ -108,6 +138,7 @@ export function MedicationSearch({ size = 'lg', autoFocus = false, initialQuery 
           type="text"
           value={query}
           onChange={handleChange}
+          onFocus={handleFocus}
           onKeyDown={handleKeyDown}
           onFocus={() => results.length > 0 && setOpen(true)}
           placeholder="Pesquise pelo nome do medicamento..."
