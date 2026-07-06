@@ -23,7 +23,7 @@ export function MedGoLogo({ size = 32, showText = true, inverted = false, classN
       <MedGoMark size={size} />
       {showText && (
         <span style={{
-          fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+          fontFamily: "'Alpino', system-ui, sans-serif",
           fontWeight: 800,
           fontSize: Math.round(size * 0.68),
           lineHeight: 1,
