@@ -1,8 +1,19 @@
-@import url('https://fonts.googleapis.com/css2?family=Khand:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Alpino Variable — self-hosted, zero dependency ────────── */
+@font-face {
+  font-family: 'Alpino';
+  src: url('/fonts/Alpino-Variable.woff2') format('woff2'),
+       url('/fonts/Alpino-Variable.woff')  format('woff'),
+       url('/fonts/Alpino-Variable.ttf')   format('truetype');
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
+}
+
 
 /* ─────────────────────────────────────────────────────────────
    BASE
@@ -18,7 +29,7 @@
   }
 
   body {
-    font-family: 'Khand', system-ui, sans-serif;
+    font-family: 'Alpino', system-ui, sans-serif;
     color: #0a192f;
     background: #f9fafb;
     line-height: 1.6;
@@ -705,200 +716,4 @@
   .rotating-text-word {
     animation: none;
   }
-}
-
-/* ─────────────────────────────────────────────────────────────
-   COLOUR LIFE PASS — mais cor e movimento, mesma paleta
-───────────────────────────────────────────────────────────── */
-
-/* ThankYouPage check draw */
-@keyframes checkDraw { to { stroke-dashoffset: 0; } }
-
-/* Botões com micro-lift e sombra colorida */
-.btn-primary, .btn-primary-lg {
-  transition: transform 0.15s cubic-bezier(.16,1,.3,1),
-              box-shadow 0.15s cubic-bezier(.16,1,.3,1),
-              background-color 0.15s;
-}
-.btn-primary:hover, .btn-primary-lg:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px -4px rgba(20,184,166,0.38);
-}
-.btn-primary:active, .btn-primary-lg:active { transform: translateY(0); }
-
-/* Cards com borda que ganha vida no hover */
-.card {
-  transition: box-shadow 0.18s, border-color 0.18s, transform 0.18s;
-}
-.card:not(:has(button:hover)):hover {
-  border-color: rgba(20,184,166,0.22);
-  box-shadow: 0 4px 18px -4px rgba(20,184,166,0.10), 0 1px 4px 0 rgb(0 0 0 / .05);
-}
-
-/* Stat cards — top border colorida por tom */
-.stat-card { border-top: 2px solid transparent; transition: border-color 0.2s, box-shadow 0.2s; }
-.stat-card:hover { border-color: #2dd4bf; box-shadow: 0 4px 16px -4px rgba(20,184,166,0.14); }
-
-/* Order cards — left border pulsada ao hover */
-.order-card {
-  transition: transform 0.15s cubic-bezier(.16,1,.3,1), box-shadow 0.15s;
-}
-.order-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -4px rgb(0 0 0 / .09);
-}
-
-/* Nav pública — underline animado */
-nav a, nav button {
-  position: relative;
-}
-
-/* Badge — mais saturado */
-.badge { letter-spacing: 0.01em; font-weight: 700; }
-
-/* Heading público — gradiente subtil no texto */
-.hero-heading-gradient {
-  background: linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #0f766e 100%);
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: headingShift 8s ease-in-out infinite;
-}
-@keyframes headingShift {
-  0%, 100% { background-position: 0% 50%; }
-  50%       { background-position: 100% 50%; }
-}
-
-/* Teal glow nos inputs em focus */
-.input:focus, input:focus {
-  box-shadow: 0 0 0 3px rgba(20,184,166,0.14), 0 1px 2px 0 rgb(0 0 0 / .04);
-}
-
-/* Section label — barra colorida à esquerda */
-.section-label {
-  padding-left: 10px;
-  border-left: 3px solid #14b8a6;
-}
-
-/* Animação de entrada — fade + slide mais suave */
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes fadeUpIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* Dashboard header — linha teal no topo */
-.dashboard-header {
-  border-top: 2px solid #14b8a6 !important;
-}
-
-/* KPI cards — shadow colorida subtil */
-.dashboard-kpi {
-  transition: box-shadow 0.18s, transform 0.18s;
-}
-.dashboard-kpi:hover {
-  box-shadow: 0 4px 14px -4px rgba(20,184,166,0.16);
-  transform: translateY(-1px);
-}
-
-/* Status badges — brilho subtil */
-.badge-CONFIRMED, .badge-DELIVERED, .badge-IN_DELIVERY {
-  box-shadow: 0 0 0 1px rgba(20,184,166,0.22);
-}
-.badge-AWAITING_CLIENT {
-  animation: badgePulse 3s ease-in-out infinite;
-}
-@keyframes badgePulse {
-  0%,100% { box-shadow: 0 0 0 0 rgba(249,115,22,0); }
-  50%      { box-shadow: 0 0 0 3px rgba(249,115,22,0.14); }
-}
-
-/* Scrollbar pública — teal */
-::-webkit-scrollbar-thumb { background: #99f6e4; }
-::-webkit-scrollbar-thumb:hover { background: #2dd4bf; }
-
-/* ─────────────────────────────────────────────────────────────
-   LANDING PAGE — Genova-inspired hero
-───────────────────────────────────────────────────────────── */
-
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(18px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes heroCardIn {
-  from { opacity: 0; transform: translateY(24px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* Primary CTA */
-.hero-btn-primary:hover {
-  background: #133a80 !important;
-  transform: translateY(-2px) !important;
-  box-shadow: 0 8px 28px rgba(12,43,100,0.38) !important;
-}
-.hero-btn-primary:active { transform: translateY(0) !important; }
-
-/* Secondary glassmorphism CTA */
-.hero-btn-secondary:hover {
-  background: rgba(255,255,255,0.72) !important;
-  border-color: rgba(0,0,0,0.18) !important;
-  transform: translateY(-2px) !important;
-}
-
-/* ── Tablet ─────────────────────────────────── */
-@media (max-width: 1024px) {
-  .hero-grid {
-    grid-template-columns: 1fr !important;
-    padding: 6rem 3rem 4rem !important;
-    gap: 3rem !important;
-  }
-  .hero-card-col { justify-content: flex-start !important; }
-  .steps-grid { grid-template-columns: 1fr !important; }
-  .cta-section { margin: 0 2rem 4rem !important; padding: 3rem 2rem !important; }
-}
-
-/* ── Mobile ─────────────────────────────────── */
-@media (max-width: 768px) {
-  .hero-grid {
-    padding: 5rem 1.5rem 3rem !important;
-    gap: 2.5rem !important;
-  }
-  .hero-card-col { display: none !important; }
-  .steps-grid { gap: 1rem !important; }
-  .cta-section { margin: 0 1rem 3rem !important; border-radius: 16px !important; }
-}
-
-/* ─────────────────────────────────────────────────────────────
-   MODAL — Como Funciona / genéricos
-───────────────────────────────────────────────────────────── */
-@keyframes modalIn    { from { opacity: 0; transform: scale(0.94) translateY(12px); } to { opacity: 1; transform: none; } }
-@keyframes overlayIn  { from { opacity: 0; } to { opacity: 1; } }
-@keyframes comoStepIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
-
-.modal-overlay {
-  position: fixed; inset: 0; z-index: 50;
-  display: flex; align-items: center; justify-content: center;
-  padding: 16px;
-  animation: overlayIn 0.15s ease;
-}
-.modal-backdrop {
-  position: absolute; inset: 0;
-  background: rgba(8,11,18,0.65);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-}
-.modal-panel {
-  position: relative; width: 100%; max-width: 540px;
-  background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 0 32px 72px -8px rgb(0 0 0 / .25);
-  animation: modalIn 0.28s cubic-bezier(.16,1,.3,1);
-  overflow: hidden;
-  max-height: 90svh;
-  overflow-y: auto;
 }
