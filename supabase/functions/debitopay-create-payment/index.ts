@@ -19,7 +19,7 @@ function msisdn(phone: string) {
   return d.startsWith('258') ? d.slice(3) : d
 }
 
-Deno.Deno.serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors })
   if (req.method !== 'POST') return json({ success: false, message: 'Method not allowed' }, 405)
 
@@ -28,17 +28,16 @@ Deno.Deno.serve(async (req) => {
     const anonKey    = Deno.env.get('SUPABASE_ANON_KEY')
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     const apiKey     = Deno.env.get('DEBITOPAY_API_KEY')
-    const walletId   = Deno.env.get('DEBITOPAY_WALLET_ID')
-    const merchantId = Deno.env.get('DEBITOPAY_MERCHANT_ID')
-    const apiBase    = Deno.env.get('DEBITOPAY_API_BASE_URL') || 'https://my.debito.co.mz/api/v1'
-
-    console.log('[debitopay] env check — supabaseUrl:', !!supabaseUrl, 'anonKey:', !!anonKey, 'serviceKey:', !!serviceKey, 'apiKey:', !!apiKey, 'walletId:', !!walletId)
+    const walletMpesa = Deno.env.get('DEBITOPAY_WALLET_ID_MPESA') || Deno.env.get('DEBITOPAY_WALLET_ID')
+    const walletEmola = Deno.env.get('DEBITOPAY_WALLET_ID_EMOLA')
+    const merchantId  = Deno.env.get('DEBITOPAY_MERCHANT_ID')
+    const apiBase     = Deno.env.get('DEBITOPAY_API_BASE_URL') || 'https://my.debito.co.mz/api/v1'
 
     if (!supabaseUrl || !anonKey || !serviceKey)
       return json({ success: false, reason: 'supabase_env_missing' }, 500)
 
-    if (!apiKey || !walletId)
-      return json({ success: false, reason: 'debitopay_secrets_missing', message: 'Configura DEBITOPAY_API_KEY e DEBITOPAY_WALLET_ID nos Supabase Secrets.' })
+    if (!apiKey)
+      return json({ success: false, reason: 'debitopay_secrets_missing', message: 'Configura DEBITOPAY_API_KEY nos Supabase Secrets.' })
 
     // ── Auth do utilizador ────────────────────────────────────
     const auth = req.headers.get('Authorization') || ''
@@ -90,6 +89,18 @@ Deno.Deno.serve(async (req) => {
     const method = String(body.method || order.payment_method || '').toUpperCase()
     if (!['MPESA', 'EMOLA'].includes(method))
       return json({ success: false, reason: 'unsupported_method', message: 'Método não suportado. Use MPESA ou EMOLA.' }, 400)
+
+    // Selecionar Wallet correta
+    const walletId = method === 'EMOLA' ? walletEmola : walletMpesa
+    if (!walletId) {
+      return json({ 
+        success: false, 
+        reason: 'wallet_not_configured', 
+        message: `Wallet ID para ${method} não configurado. Adiciona DEBITOPAY_WALLET_ID_${method} nos Secrets.` 
+      }, 500)
+    }
+
+    console.log(`[debitopay] using wallet: ${walletId} for method: ${method}`)
 
     const amount = Number(body.amount || order.total_price || 0)
     if (!Number.isFinite(amount) || amount <= 0)
