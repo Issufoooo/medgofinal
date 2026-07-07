@@ -4,7 +4,7 @@
  * Usa get_user_role() em vez de query profiles (evita 403).
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -19,7 +19,7 @@ function msisdn(phone: string) {
   return d.startsWith('258') ? d.slice(3) : d
 }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors })
   if (req.method !== 'POST') return json({ success: false, message: 'Method not allowed' }, 405)
 

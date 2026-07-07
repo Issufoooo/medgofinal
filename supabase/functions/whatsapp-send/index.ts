@@ -7,7 +7,6 @@
  *   WHATSAPP_PHONE_NUMBER_ID — ID do número no Meta Business
  */
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +21,7 @@ function json(payload: unknown, status = 200) {
   });
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Only POST allowed" }, 405);
 

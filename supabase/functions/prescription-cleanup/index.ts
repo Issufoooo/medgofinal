@@ -7,7 +7,7 @@
  * Cron:    0 * * * *  (cada hora)
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -17,7 +17,7 @@ const supabase = createClient(
 // Bucket correcto
 const BUCKET = 'prescription-uploads'
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(async (req) => {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
   }

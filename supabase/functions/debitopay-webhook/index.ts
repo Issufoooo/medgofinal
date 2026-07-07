@@ -8,7 +8,7 @@
  *   DEBITOPAY_WEBHOOK_SECRET — se configurado, valida header x-webhook-secret ou x-debitopay-signature.
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -39,7 +39,7 @@ function normalizeProviderStatus(status: unknown) {
   return raw || 'AWAITING_CONFIRMATION'
 }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
   if (req.method !== 'POST') return json({ ok: false, message: 'Method not allowed' }, 405)
 

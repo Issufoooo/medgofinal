@@ -7,7 +7,7 @@
  *   WHATSAPP_PHONE_NUMBER_ID — ID do número Meta
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -51,7 +51,7 @@ function isConfirm(text: string) {
 }
 function normPhone(p: string) { return String(p||'').replace(/\D/g,'').replace(/^258/,'') }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(async (req) => {
   // GET — verificação Meta
   if (req.method === 'GET') {
     const p   = new URL(req.url).searchParams

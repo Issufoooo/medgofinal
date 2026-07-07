@@ -8,7 +8,7 @@
  * Cron:    */15 * * * *  (cada 15 minutos)
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -36,7 +36,7 @@ function isWithinBusinessHours(start: string, end: string): boolean {
   return current >= startMin && current <= endMin
 }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(async (req) => {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
   }
