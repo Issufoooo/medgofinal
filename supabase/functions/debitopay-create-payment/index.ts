@@ -31,7 +31,9 @@ Deno.serve(async (req) => {
     const walletMpesa = Deno.env.get('DEBITOPAY_WALLET_ID_MPESA') || Deno.env.get('DEBITOPAY_WALLET_ID')
     const walletEmola = Deno.env.get('DEBITOPAY_WALLET_ID_EMOLA')
     const merchantId  = Deno.env.get('DEBITOPAY_MERCHANT_ID')
-    const apiBase     = Deno.env.get('DEBITOPAY_API_BASE_URL') || 'https://my.debito.co.mz/api/v1'
+    // Forçar sempre HTTPS — o secret DEBITOPAY_API_BASE_URL estava com http:// causando DNS failure
+    const apiBaseRaw  = Deno.env.get('DEBITOPAY_API_BASE_URL') || 'https://my.debito.co.mz/api/v1'
+    const apiBase     = apiBaseRaw.replace(/^http:\/\//, 'https://')
 
     if (!supabaseUrl || !anonKey || !serviceKey)
       return json({ success: false, reason: 'supabase_env_missing' }, 500)
