@@ -89,7 +89,7 @@ Deno.Deno.serve(async (req) => {
         raw_payload: raw,
         received_at: ts ? new Date(Number(ts) * 1000).toISOString() : new Date().toISOString(),
       }, { onConflict: 'message_id', ignoreDuplicates: true })
-        .catch(err => console.error('[webhook] whatsapp_messages insert error:', JSON.stringify(err)))
+        .then(({ error }) => { if (error) console.error('[webhook] whatsapp_messages insert error:', JSON.stringify(error)) })
 
       if (!msgText) continue
 
